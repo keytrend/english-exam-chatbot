@@ -9,6 +9,25 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
+// ========== 캐시 저장소 추가 ==========
+const contextCache = new Map();
+
+// 1시간 후 캐시 자동 삭제
+setInterval(() => {
+    const now = Date.now();
+    const ONE_HOUR = 60 * 60 * 1000;
+    
+    for (let [key, value] of contextCache.entries()) {
+        if (now - value.timestamp > ONE_HOUR) {
+            contextCache.delete(key);
+            console.log(`캐시 삭제: ${key}`);
+        }
+    }
+}, 10 * 60 * 1000); // 10분마다 체크
+// =====================================
+
+const app = express();
+
 const { generateToken, authenticateToken } = require('./auth');
 const { verifySubscription } = require('./thinkific');
 const { 
@@ -20,7 +39,7 @@ const {
 } = require('./database');
 const { answerQuestion, calculateCost } = require('./ai-router-caching');
 
-const app = express();
+// const app = express();
 const PORT = process.env.PORT || 3000;
 
 // 미들웨어
@@ -113,10 +132,53 @@ app.post('/api/auth/token', async (req, res) => {
 /**
  * 질문 답변 엔드포인트 (메인!)
  */
+// ========== 캐시 저장 엔드포인트 ==========
+app.post('/api/cache-context', authenticateToken, (req, res) => {
+    try {
+        const { page_id, context } = req.body;
+        
+        if (!page_id || !context) {
+            return res.status(400).json({ error: 'page_id와 context가 필요합니다' });
+        }
+        
+        // 캐시 저장
+        contextCache.set(page_id, {
+            context: context,
+            timestamp: Date.now(),
+            user: req.user.email
+        });
+        
+        console.log(`캐시 저장: ${page_id} (${context.length} 글자)`);
+        
+        res.json({ 
+            success: true,
+            cached_length: context.length 
+        });
+    } catch (error) {
+        console.error('캐시 저장 오류:', error);
+        res.status(500).json({ error: '캐시 저장 실패' });
+    }
+});
+// =========================================
 app.post('/api/chat', authenticateToken, async (req, res) => {
-  try {
-    const { question, context } = req.body;
-    const userId = req.user.userId;
+    try {
+        const { question, questionType, page_id } = req.body;  // ← page_id 추가
+        
+        // ========== 캐시에서 해설 가져오기 ==========
+        let context = '';
+        if (page_id) {
+            const cached = contextCache.get(page_id);
+            if (cached) {
+                context = cached.context;
+                console.log(`캐시 사용: ${page_id} (${context.length} 글자)`);
+            } else {
+                console.log(`캐시 없음: ${page_id}`);
+            }
+        }
+        // ==========================================
+        
+        const userEmail = req.user.email;    
+        const userId = req.user.userId;
     
     // 입력 검증
     if (!question || !question.trim()) {
@@ -126,16 +188,13 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
       });
     }
     
-    if (!context || !context.trim()) {
-      return res.status(400).json({
-        error: 'missing_context',
-        message: '문제 해설이 필요합니다.'
-      });
-    }
-    
-    // 질문 분류 (간단/복잡)
-    const { classifyQuestion } = require('./ai-router-caching');
-    const questionType = classifyQuestion(question);
+// 테스트용: context 필수 체크 비활성화
+    // if (!context || !context.trim()) {
+    //   return res.status(400).json({
+    //     error: 'missing_context',
+    //     message: '문제 해설이 필요합니다.'
+    //   });
+    // }
     
     // 사용량 제한 확인
     const usageCheck = await checkUsageLimit(userId, questionType);
@@ -148,10 +207,10 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
       });
     }
     
-    // AI에게 질문
-    const startTime = Date.now();
-    const result = await answerQuestion(question, context);
-    const responseTime = Date.now() - startTime;
+// AI에게 질문
+const startTime = Date.now();
+const result = await answerQuestion(question, context, questionType);  // ← questionType 추가
+const responseTime = Date.now() - startTime;
     
     // 사용량 증가
     const deductFrom = usageCheck.deductFrom || null;

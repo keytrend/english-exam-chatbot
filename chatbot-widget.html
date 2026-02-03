@@ -169,6 +169,35 @@
             <button class="logout-btn" onclick="logout()">로그아웃</button>
         </div>
         <div class="error-message" id="errorMessage"></div>
+<!-- ========== 질문 유형 선택 ========== -->
+        <div style="margin: 15px 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
+            <div style="margin-bottom: 12px; font-weight: bold; color: #495057;">
+                💡 질문 유형을 선택하세요
+            </div>
+            <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                <button id="simpleBtn" onclick="selectQuestionType('simple')" 
+                        style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                    간단한 질문
+                </button>
+                <button id="complexBtn" onclick="selectQuestionType('complex')" 
+                        style="flex: 1; padding: 12px; background: #e9ecef; color: #6c757d; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                    복잡한 질문
+                </button>
+            </div>
+            <div style="font-size: 13px; color: #6c757d; line-height: 1.6;">
+                <div id="simpleDesc" style="display: block;">
+                    ✓ 단어/문법 뜻 묻기<br>
+                    ✓ 짧은 문장 해석<br>
+                    ✓ 예: "flawlessly의 뜻은?"
+                </div>
+                <div id="complexDesc" style="display: none;">
+                    ✓ 문제 풀이 전체 설명<br>
+                    ✓ 긴 문단 분석 요청<br>
+                    ✓ 예: "이 문제를 자세히 설명해주세요"
+                </div>
+            </div>
+        </div>
+        <!-- ==================================== -->
         <div class="chat-messages" id="chatMessages">
             <div class="message bot">
                 <div class="bubble">
@@ -191,11 +220,47 @@
 </div>
 
 <script>
-var API_URL = 'http://localhost:3000';
+var API_URL = 'https://english-exam-chatbot.onrender.com';
 var authToken = localStorage.getItem('authToken');
+
+// ========== 자동 해설 추출 함수 ==========
+function getPageContext() {
+    var allText = document.body.innerText;
+    
+    // 방법 1: "정답:" 찾기
+    var startIndex = allText.indexOf('정답:');
+    
+    // 방법 2: "[프리미엄 문제 분석]" 찾기
+    if (startIndex === -1) {
+        startIndex = allText.indexOf('[프리미엄 문제 분석]');
+    }
+    
+    if (startIndex !== -1) {
+        var context = allText.substring(startIndex);
+        console.log('해설 추출 완료:', context.length, '글자');
+        return context;
+    }
+    
+    console.log('해설을 찾을 수 없습니다');
+    return '';
+}
+
+function getPageId() {
+    return window.location.pathname || 'default-page';
+}
+// ==========================================
 
 // ---- 페이지 로드 ----
 window.onload = function() {
+    // ========== 자동 해설 캐싱 준비 ==========
+    var context = getPageContext();
+    if (context) {
+        var page_id = getPageId();
+        console.log('페이지 로드 완료, 해설 캐싱 준비:', page_id);
+        window.pendingContext = { page_id: page_id, context: context };
+    }
+    // =======================================
+    
     if (authToken) {
         showChatArea();
         loadUsageInfo();
@@ -218,6 +283,11 @@ async function login() {
         if (data.token) {
             authToken = data.token;
             localStorage.setItem('authToken', authToken);
+// ========== 캐싱 실행 ==========
+            if (window.pendingContext) {
+                cacheContext(window.pendingContext.page_id, window.pendingContext.context);
+            }
+            // ==============================
             showChatArea();
             loadUsageInfo();
         } else {
@@ -253,7 +323,52 @@ function showChatArea() {
     document.getElementById('loginArea').classList.add('hidden');
     document.getElementById('chatArea').classList.add('visible');
 }
+// ---- 캐싱 함수 ----
+async function cacheContext(page_id, context) {
+    try {
+        var res = await fetch(API_URL + '/api/cache-context', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + authToken,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ page_id: page_id, context: context })
+        });
+        var data = await res.json();
+        if (data.success) {
+            console.log('캐싱 완료:', data.cached_length, '글자');
+        }
+    } catch(e) {
+        console.error('캐싱 오류:', e);
+    }
+}
+// ---- 질문 유형 선택 ----
+var selectedQuestionType = 'simple';
 
+function selectQuestionType(type) {
+    selectedQuestionType = type;
+    
+    var simpleBtn = document.getElementById('simpleBtn');
+    var complexBtn = document.getElementById('complexBtn');
+    var simpleDesc = document.getElementById('simpleDesc');
+    var complexDesc = document.getElementById('complexDesc');
+    
+    if (type === 'simple') {
+        simpleBtn.style.background = '#28a745';
+        simpleBtn.style.color = 'white';
+        complexBtn.style.background = '#e9ecef';
+        complexBtn.style.color = '#6c757d';
+        simpleDesc.style.display = 'block';
+        complexDesc.style.display = 'none';
+    } else {
+        simpleBtn.style.background = '#e9ecef';
+        simpleBtn.style.color = '#6c757d';
+        complexBtn.style.background = '#007bff';
+        complexBtn.style.color = 'white';
+        simpleDesc.style.display = 'none';
+        complexDesc.style.display = 'block';
+    }
+}
 // ---- 사용량 로드 ----
 async function loadUsageInfo() {
     try {
@@ -285,7 +400,11 @@ async function sendQuestion() {
         var res = await fetch(API_URL + '/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
-            body: JSON.stringify({ question: question, context: '수능 영어 학습' })
+            body: JSON.stringify({ 
+    		   question: question, 
+    		   questionType: selectedQuestionType,
+    		   page_id: getPageId()
+})
         });
         if (checkAuthError(res)) return;
         var data = await res.json();

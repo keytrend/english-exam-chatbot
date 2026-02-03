@@ -184,7 +184,7 @@ async function askClaudeSonnet(question, context) {
     
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-5-20250929",
-      max_tokens: 1000,  // 상세한 답변
+      max_tokens: 4000,  // 상세한 답변
       system: [SYSTEM_PROMPT],
       messages: messages
     });
