@@ -28,6 +28,15 @@ setInterval(() => {
 
 const app = express();
 
+// ========== CORS 설정 추가 ==========
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+}));
+// ===================================
+
 const { generateToken, authenticateToken } = require('./auth');
 const { verifySubscription } = require('./thinkific');
 const { 
