@@ -20,7 +20,7 @@ setInterval(() => {
     for (let [key, value] of contextCache.entries()) {
         if (now - value.timestamp > ONE_HOUR) {
             contextCache.delete(key);
-            console.log(`캐시 삭제: ${key}`);
+            console.log(캐시 삭제: ${key});
         }
     }
 }, 10 * 60 * 1000); // 10분마다 체크
