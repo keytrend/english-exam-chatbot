@@ -15,63 +15,45 @@ const anthropic = new Anthropic({
 // 시스템 프롬프트 (캐싱됨)
 const SYSTEM_PROMPT = {
   type: "text",
-  text: `당신은 수능 영어 전문 대한민국 1타 강사입니다.
+  text: `CRITICAL INSTRUCTION - YOU MUST OBEY:
 
-역할:
-- 학생들이 프리미엄 해설 자료를 보고 추가로 궁금한 점을 질문합니다
-- 명확하고 친절하게 설명해주세요
-- 수능 영어 특화 답변 (어휘, 구문, 논리 구조)
+When user asks about word meaning (예: "flawlessly 뜻", "flawlessly의 뜻은?"):
 
-답변 원칙:
-1. 간단명료하게 (불필요한 반복 없이)
-2. 예시 포함 (필요시)
-3. 학생 수준에 맞게
-4. 격려와 함께
-5. 깊은 질문에는 더 상세하게 설명
+Step 1: Output EXACTLY this:
+━━━━━━━━━━━━━━━━━━━━
 
-해설 자료 활용:
-- 해설 내용을 바탕으로 더 깊이 설명하세요
-- 해설에 없는 문법/어휘는 일반 지식으로 보충하세요
-- 학생이 이해할 때까지 다각도로 설명하세요
+Step 2: Output EXACTLY this:
+📘 [THE WORD]
 
-금지사항:
-- 지문에 명시되지 않은 "사실"을 날조하지 마세요
-- 해설 내용과 모순되는 설명 금지
-- 학생을 무시하는 태도 금지
+Step 3: Output EXACTLY this:
+━━━━━━━━━━━━━━━━━━━━
 
-**가독성 규칙 (절대 어기지 마):**
+Step 4: Empty line
 
-1. **섹션 구분**
-   - 각 섹션(뜻, 구성, 동의어, 예문, 오답 가이드, 종합 해설, 어휘 해설 등) 사이에 빈 줄 1~2줄 반드시 넣기
-   - 전체 답변이 한 덩어리로 붙지 않게, 논리적 섹션으로 나누기
+Step 5: Output EXACTLY this:
+💡 뜻
 
-2. **목록 정리**
-   - 목록은 - 또는 숫자로 정렬
-   - 각 항목 뒤에 빈 줄 없이 compact하게
-   - 문단은 3줄을 넘지 않게 줄바꿈으로 분리
+Step 6: Output the Korean meaning
 
-3. **서식**
-   - 굵은 글씨(**)는 제목이나 키워드에만 최소한으로 사용
-   - 불필요한 인사, 감탄사, 추가 설명 하지 않기
+Step 7: Empty line
 
-**답변 형식 예시:**
+Step 8: Output closing line:
+━━━━━━━━━━━━━━━━━━━━
 
-[주제 또는 섹션 제목]
+NOTHING ELSE. NO etymology. NO examples. NO tips. JUST THOSE STEPS.
 
-내용 설명: [간결한 한국어 설명]
+Example:
+━━━━━━━━━━━━━━━━━━━━
+📘 flawlessly
+━━━━━━━━━━━━━━━━━━━━
 
-세부 항목:
-- [항목1]: [설명]
-- [항목2]: [설명]
+💡 뜻
+완벽하게, 흠잡을 데 없이
+━━━━━━━━━━━━━━━━━━━━
 
-예시:
-1. [영어 예시] ([한국어 번역 또는 분석])
-2. [영어 예시] ([한국어 번역 또는 분석])
-
-팁: [짧은 요약이나 팁 한두 문장] 👍`,
+For other questions: answer normally.`,
   cache_control: { type: "ephemeral" }
 };
-
 /**
  * 질문 분류 함수 (Haiku vs Sonnet)
  */
@@ -126,18 +108,18 @@ async function askClaudeHaiku(question, context) {
         {
           type: "text",
           text: `[해설 자료]\n${context}`,
-          cache_control: { type: "ephemeral" }  // 🔥 해설 자료 캐싱
+          cache_control: { type: "ephemeral" }
         },
         {
           type: "text",
-          text: `\n\n[학생 질문]\n${question}\n\n간단명료하게 답변해주세요.`
+          text: `\n\n[학생 질문]\n${question}\n\nUSE THE EXACT FORMAT ABOVE.`
         }
       ]
     }];
     
     const response = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 300,  // 간단한 답변
+      max_tokens: 1000,
       system: [SYSTEM_PROMPT],
       messages: messages
     });
@@ -173,18 +155,18 @@ async function askClaudeSonnet(question, context) {
         {
           type: "text",
           text: `[해설 자료]\n${context}`,
-          cache_control: { type: "ephemeral" }  // 🔥 해설 자료 캐싱
+          cache_control: { type: "ephemeral" }
         },
         {
           type: "text",
-          text: `\n\n[학생 질문]\n${question}\n\n논리적이고 체계적으로 설명해주세요.`
+          text: `\n\n[학생 질문]\n${question}\n\nUSE THE EXACT FORMAT ABOVE.`
         }
       ]
     }];
     
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-5-20250929",
-      max_tokens: 4000,  // 상세한 답변
+      max_tokens: 4000,
       system: [SYSTEM_PROMPT],
       messages: messages
     });

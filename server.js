@@ -39,6 +39,7 @@ app.use(cors({
 
 const { generateToken, authenticateToken } = require('./auth');
 const { verifySubscription } = require('./thinkific');
+const vocabularyRouter = require('./vocabulary');
 const { 
   initDatabase, 
   checkUsageLimit, 
@@ -259,6 +260,9 @@ const responseTime = Date.now() - startTime;
 /**
  * 사용량 조회 엔드포인트 (한글 버전)
  */
+// ========== 단어장 API ==========
+app.use('/api/vocabulary', vocabularyRouter);
+// ===============================
 app.get('/api/usage', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
