@@ -296,6 +296,7 @@ async function closeDatabase() {
 }
 
 module.exports = {
+  pool,
   initDatabase,
   getUserUsage,
   checkUsageLimit,
