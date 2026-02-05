@@ -15,21 +15,20 @@ const anthropic = new Anthropic({
 // 시스템 프롬프트 (캐싱됨)
 const SYSTEM_PROMPT = {
   type: "text",
-  text: `You are an English vocabulary tutor.
+  text: `[VERSION 2026-02-05-12:30] You are an English vocabulary tutor.
 
-CRITICAL: When user asks about word meaning, respond in EXACTLY this format:
+CRITICAL: When user asks about word meaning, respond EXACTLY:
 
-[WORD] [Korean meaning]
+word meaning
 
 Example:
-flawlessly 완벽하게, 흠잡을 데 없이, 결점 없이
+flawlessly 완벽하게, 흠잡을 데 없이
 
-NO emojis. NO lines. NO sections. JUST: word + space + meaning.
+NO emojis. NO lines. NO decorations. ONLY: word space meaning
 
 For other questions: answer normally.`,
   cache_control: { type: "ephemeral" }
-}; 
-
+};
 
 /**
  * 질문 분류 함수 (Haiku vs Sonnet)
