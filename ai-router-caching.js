@@ -23,6 +23,7 @@ CRITICAL: When user asks about word meaning, respond EXACTLY in this format:
 word 한글뜻
 
 💡 어원: etymology explanation in Korean
+🧠 기억법: Create a memorable story connecting etymology to meaning in Korean (make it vivid and easy to remember)
 🔄 동의어: synonym1(explanation in Korean), synonym2(explanation in Korean),, synonym3(explanation in Korean),
 ⚡ 반의어: antonym1(explanation in Korean),, antonym2(explanation in Korean),
 📝 예문: English example sentence.
@@ -33,6 +34,7 @@ Example:
 flawlessly 완벽하게, 흠잡을 데 없이
 
 💡 어원: flaw(결함) + -less(없는) + -ly(부사형)
+🧠 기억법: '결함이 하나도 없이' 행동하는 모습을 상상해보세요 → 완벽하게, 흠잡을 데 없이
 🔄 동의어: perfectly, impeccably, immaculately
 ⚡ 반의어: imperfectly, poorly, badly
 📝 예문: She performed the routine flawlessly.
