@@ -32,7 +32,7 @@ function generateToken(userId, userEmail) {
       issuer: 'english-chatbot'
     });
     
-    console.log([Auth] Token generated for user: ${userId}`);
+    console.log(`[Auth] Token generated for user: ${userId}`);
     return token;
     
   } catch (error) {
@@ -50,7 +50,7 @@ function verifyToken(token) {
       issuer: 'english-chatbot'
     });
     
-    console.log([Auth] Token verified for user: ${decoded.userId}`);
+    console.log(`[Auth] Token verified for user: ${decoded.userId}`);
     return {
       valid: true,
       userId: decoded.userId,
