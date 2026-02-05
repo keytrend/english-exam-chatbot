@@ -6,7 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('./auth');
-const pool = require('./db');
+const pool = require('./database');
 
 // ========== 단어 저장 ==========
 router.post('/save', verifyToken, async (req, res) => {
