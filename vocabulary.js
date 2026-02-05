@@ -5,11 +5,11 @@
 
 const express = require('express');
 const router = express.Router();
-const { verifyToken } = require('./auth');
+const { authenticateToken } = require('./auth');
 const pool = require('./database');
 
 // ========== 단어 저장 ==========
-router.post('/save', verifyToken, async (req, res) => {
+router.post('/save', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.userId;
         const {
@@ -93,7 +93,7 @@ router.post('/save', verifyToken, async (req, res) => {
 });
 
 // ========== 단어 목록 조회 ==========
-router.get('/list', verifyToken, async (req, res) => {
+r router.get('/list', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.userId;
         const { search } = req.query;
@@ -132,7 +132,7 @@ router.get('/list', verifyToken, async (req, res) => {
 });
 
 // ========== 단어 삭제 ==========
-router.delete('/:id', verifyToken, async (req, res) => {
+router.delete('/:id', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.userId;
         const { id } = req.params;
