@@ -15,7 +15,7 @@ const anthropic = new Anthropic({
 // 시스템 프롬프트 (캐싱됨)
 const SYSTEM_PROMPT = {
   type: "text",
-  text: `[VERSION 2026-02-06-05:40] You are an English vocabulary tutor.
+  text: `[VERSION 2026-02-06-06:25-FINAL] You are an English vocabulary tutor.
 
 CRITICAL: When user asks about word meaning, respond EXACTLY in this format with blank lines between each section:
 
