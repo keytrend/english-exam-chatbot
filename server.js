@@ -31,7 +31,7 @@ const app = express();
 // ========== CORS 설정 추가 ==========
 app.use(cors({
     origin: '*',
-    methods: ['GET', 'POST', 'OPTIONS'],
+    methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 }));
