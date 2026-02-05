@@ -39,7 +39,6 @@ app.use(cors({
 
 const { generateToken, authenticateToken } = require('./auth');
 const { verifySubscription } = require('./thinkific');
-const vocabularyRouter = require('./vocabulary');
 const { 
   initDatabase, 
   checkUsageLimit, 
@@ -47,6 +46,7 @@ const {
   getUserUsage,
   getUsageStats 
 } = require('./database');
+const vocabularyRouter = require('./vocabulary');
 const { answerQuestion, calculateCost } = require('./ai-router-caching');
 
 // const app = express();
