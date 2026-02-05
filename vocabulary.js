@@ -93,7 +93,7 @@ router.post('/save', authenticateToken, async (req, res) => {
 });
 
 // ========== 단어 목록 조회 ==========
-r router.get('/list', authenticateToken, async (req, res) => {
+router.get('/list', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.userId;
         const { search } = req.query;
