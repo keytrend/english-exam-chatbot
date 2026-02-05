@@ -60,6 +60,32 @@ async function initDatabase() {
       ON user_usage(last_used)
     `);
     
+    // vocabulary 테이블 생성
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS vocabulary (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(255) NOT NULL,
+        word VARCHAR(100) NOT NULL,
+        meaning TEXT NOT NULL,
+        etymology TEXT,
+        synonyms JSONB,
+        antonyms JSONB,
+        appeared_in_suneung BOOLEAN DEFAULT false,
+        suneung_years TEXT,
+        suneung_example_en TEXT,
+        suneung_example_ko TEXT,
+        general_example_en TEXT,
+        general_example_ko TEXT,
+        saved_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_id, word)
+      )
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_user_word 
+      ON vocabulary(user_id, word)
+    `);
+    
     await client.query('COMMIT');
     console.log('[DB] Database initialized successfully');
     
