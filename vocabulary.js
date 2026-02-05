@@ -1,12 +1,13 @@
 /**
  * 파일명: vocabulary.js
  * 목적: 단어장 API
+ * 수정: 2026-02-05 중괄호 수정
  */
 
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('./auth');
-const pool = require('./database');
+const { pool } = require('./database');
 
 // ========== 단어 저장 ==========
 router.post('/save', authenticateToken, async (req, res) => {
