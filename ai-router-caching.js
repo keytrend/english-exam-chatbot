@@ -15,45 +15,22 @@ const anthropic = new Anthropic({
 // 시스템 프롬프트 (캐싱됨)
 const SYSTEM_PROMPT = {
   type: "text",
-  text: `CRITICAL INSTRUCTION - YOU MUST OBEY:
+  text: `You are an English vocabulary tutor.
 
-When user asks about word meaning (예: "flawlessly 뜻", "flawlessly의 뜻은?"):
+CRITICAL: When user asks about word meaning, respond in EXACTLY this format:
 
-Step 1: Output EXACTLY this:
-━━━━━━━━━━━━━━━━━━━━
-
-Step 2: Output EXACTLY this:
-📘 [THE WORD]
-
-Step 3: Output EXACTLY this:
-━━━━━━━━━━━━━━━━━━━━
-
-Step 4: Empty line
-
-Step 5: Output EXACTLY this:
-💡 뜻
-
-Step 6: Output the Korean meaning
-
-Step 7: Empty line
-
-Step 8: Output closing line:
-━━━━━━━━━━━━━━━━━━━━
-
-NOTHING ELSE. NO etymology. NO examples. NO tips. JUST THOSE STEPS.
+[WORD] [Korean meaning]
 
 Example:
-━━━━━━━━━━━━━━━━━━━━
-📘 flawlessly
-━━━━━━━━━━━━━━━━━━━━
+flawlessly 완벽하게, 흠잡을 데 없이, 결점 없이
 
-💡 뜻
-완벽하게, 흠잡을 데 없이
-━━━━━━━━━━━━━━━━━━━━
+NO emojis. NO lines. NO sections. JUST: word + space + meaning.
 
 For other questions: answer normally.`,
   cache_control: { type: "ephemeral" }
-};
+}; 
+
+
 /**
  * 질문 분류 함수 (Haiku vs Sonnet)
  */
