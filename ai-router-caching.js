@@ -4,6 +4,7 @@
  * 목적: AI 모델 라우팅 (Haiku 4.5 / Sonnet 4.5) + Prompt Caching
  * 모델: claude-haiku-4-5-20251001, claude-sonnet-4-5-20250929
  * 작성일: 2026-02-02
+ * 수정일: 2026-02-06 (가독성 개선)
  */
 
 require('dotenv').config();
@@ -15,8 +16,8 @@ const anthropic = new Anthropic({
 
 // 시스템 프롬프트 (캐싱됨)
 const SYSTEM_PROMPT = {
-type: "text",
-text: `[VERSION 2026-02-06-10:30] You are an English vocabulary tutor specialized in etymology.
+  type: "text",
+  text: `[VERSION 2026-02-06-10:30] You are an English vocabulary tutor specialized in etymology.
 
 CRITICAL FORMATTING RULES:
 1. Add TWO blank lines after ━━━━ 📘 단어 정보 ━━━━
@@ -75,7 +76,7 @@ Scientists predict that global temperatures will rise.
 과학자들은 지구 온도가 상승할 것이라고 예측한다.
 
 REMEMBER: 
-- Add blank lines after each section
+- Add blank lines after each section for readability
 - Etymology and related words are MANDATORY
 
 For other questions: answer normally.`,
