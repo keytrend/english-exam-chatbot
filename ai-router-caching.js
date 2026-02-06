@@ -1,7 +1,8 @@
 /**
  * 파일명: ai-router-caching.js
  * Phase: 2
- * 목적: AI 모델 라우팅 (Haiku/Sonnet) + Prompt Caching
+ * 목적: AI 모델 라우팅 (Haiku 4.5 / Sonnet 4.5) + Prompt Caching
+ * 모델: claude-haiku-4-5-20251001, claude-sonnet-4-5-20250929
  * 작성일: 2026-02-02
  */
 
