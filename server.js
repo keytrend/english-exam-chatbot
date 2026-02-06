@@ -48,6 +48,7 @@ const {
 } = require('./database');
 const vocabularyRouter = require('./vocabulary');
 const { answerQuestion, calculateCost } = require('./ai-router-caching');
+const { answerQuestion, calculateCost } = require('./ai-router-caching');
 
 // const app = express();
 const PORT = process.env.PORT || 3000;
@@ -263,6 +264,9 @@ const responseTime = Date.now() - startTime;
 // ========== 단어장 API ==========
 app.use('/api/vocabulary', vocabularyRouter);
 // ===============================
+// ========== 저장한 문제 API ==========
+app.use('/api/saved-problems', savedProblemsRouter);
+// ====================================
 app.get('/api/usage', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
