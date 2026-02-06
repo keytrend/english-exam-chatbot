@@ -47,7 +47,7 @@ const {
   getUsageStats 
 } = require('./database');
 const vocabularyRouter = require('./vocabulary');
-const { answerQuestion, calculateCost } = require('./ai-router-caching');
+const savedProblemsRouter = require('./saved-problems');
 const { answerQuestion, calculateCost } = require('./ai-router-caching');
 
 // const app = express();
