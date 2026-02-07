@@ -48,6 +48,7 @@ const {
 } = require('./database');
 const vocabularyRouter = require('./vocabulary');
 const savedProblemsRouter = require('./saved-problems');
+const wrongAnswersRouter = require('./wrong-answers');
 const { answerQuestion, calculateCost } = require('./ai-router-caching');
 
 // const app = express();
@@ -267,6 +268,9 @@ app.use('/api/vocabulary', vocabularyRouter);
 // ========== 저장한 문제 API ==========
 app.use('/api/saved-problems', savedProblemsRouter);
 // ====================================
+// ========== 오답노트 API ==========
+app.use('/api/wrong-answers', wrongAnswersRouter);
+// ==================================
 app.get('/api/usage', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
