@@ -336,53 +336,17 @@ app.post('/api/vocabulary/quiz-distractors', authenticateToken, async (req, res)
         const pos = partOfSpeech || 'noun';
         const posKo = { noun: '명사', verb: '동사', adjective: '형용사', adverb: '부사' }[pos] || '명사';
         
-        // 정답의 뜻 개수 파악 (쉼표로 구분)
         const answerText = correctAnswer || meaning;
         const meaningCount = answerText.split(',').length;
         const formatInstruction = meaningCount >= 2 
-            ? `각 오답도 반드시 쉼표로 구분된 ${meaningCount}개의 뜻을 포함해야 합니다. 예: "증가, 상승" 형태`
-            : `각 오답은 1개의 뜻만 간결하게 작성하세요.`;
+            ? '각 오답도 반드시 쉼표로 구분된 ' + meaningCount + '개의 뜻을 포함해야 합니다. 예: "증가, 상승" 형태'
+            : '각 오답은 1개의 뜻만 간결하게 작성하세요.';
         
         let prompt;
         if (questionType === 'en_to_ko') {
-            prompt = `영어 단어 "${word}"의 뜻은 "${answerText}"입니다. 이 단어의 품사는 "${posKo}"입니다.
-
-오답 보기 4개를 한국어로 만들어주세요.
-
-[절대 규칙]
-1. 오답 4개 모두 반드시 "${posKo}" 품사여야 합니다.
-2. 오답은 정답("${answerText}")과 명확히 다른 뜻이어야 합니다.
-3. ${formatInstruction}
-4. 정답의 형식과 동일하게 맞추세요. 정답이 "${answerText}" 형태이므로, 오답도 같은 형태여야 합니다.
-
-반드시 JSON 배열만 출력하세요. 다른 설명 없이.
-정답 형태 참고: "${answerText}"`;
+            prompt = '영어 단어 "' + word + '"의 뜻은 "' + answerText + '"입니다. 이 단어의 품사는 "' + posKo + '"입니다.\n\n오답 보기 4개를 한국어로 만들어주세요.\n\n[절대 규칙]\n1. 오답 4개 모두 반드시 "' + posKo + '" 품사여야 합니다.\n2. 오답은 정답("' + answerText + '")과 명확히 다른 뜻이어야 합니다.\n3. ' + formatInstruction + '\n4. 정답의 형식과 동일하게 맞추세요. 정답이 "' + answerText + '" 형태이므로, 오답도 같은 형태여야 합니다.\n\n반드시 JSON 배열만 출력하세요. 다른 설명 없이.\n정답 형태 참고: "' + answerText + '"';
         } else {
-            prompt = `영어 단어 "${word}"의 뜻은 "${meaning}"입니다. 이 단어의 품사는 "${posKo}"입니다.
-
-영어 단어 오답 4개를 만들어주세요.
-
-[절대 규칙]
-1. 오답 4개 모두 반드시 "${posKo}" 품사여야 합니다.
-2. 스펠링이 비슷하거나 같은 어원의 단어 우선
-3. 영어 단어만 출력 (한국어 뜻 포함하지 마세요)
-
-반드시 JSON 배열만 출력하세요. 다른 설명 없이.`;
-        }
-            prompt = `영어 단어 "${word}"의 뜻은 "${meaning}"입니다. 이 단어의 품사는 "${posKo}"입니다.
-
-영어 단어 오답 4개를 만들어주세요.
-
-[절대 규칙]
-1. 오답 4개 모두 반드시 "${posKo}" 품사여야 합니다.
-   - 명사 예시: accumulation, environment, structure, element
-   - 형용사 예시: temporal, linguistic, therapeutic, structural
-   - 동사 예시: increase, decrease, maintain, transform
-   - 부사 예시: gradually, fundamentally, temporarily, constantly
-2. 스펠링이 비슷하거나 같은 어원의 단어 우선
-3. 영어 단어만 출력 (한국어 뜻 포함하지 마세요)
-
-반드시 JSON 배열만 출력하세요. 다른 설명 없이.`;
+            prompt = '영어 단어 "' + word + '"의 뜻은 "' + meaning + '"입니다. 이 단어의 품사는 "' + posKo + '"입니다.\n\n영어 단어 오답 4개를 만들어주세요.\n\n[절대 규칙]\n1. 오답 4개 모두 반드시 "' + posKo + '" 품사여야 합니다.\n2. 스펠링이 비슷하거나 같은 어원의 단어 우선\n3. 영어 단어만 출력 (한국어 뜻 포함하지 마세요)\n\n반드시 JSON 배열만 출력하세요. 다른 설명 없이.';
         }
         
         const response = await client.messages.create({
@@ -392,15 +356,14 @@ app.post('/api/vocabulary/quiz-distractors', authenticateToken, async (req, res)
         });
         
         const text = response.content[0].text.trim();
-        // JSON 배열 추출 (혹시 앞뒤에 다른 텍스트가 있을 경우 대비)
         const jsonMatch = text.match(/\[[\s\S]*\]/);
         if (!jsonMatch) {
             throw new Error('JSON 파싱 실패: ' + text);
         }
         const distractors = JSON.parse(jsonMatch[0]);
         
-        console.log(`[Quiz] 오답 생성: ${word} → ${distractors.join(', ')}`);
-        res.json({ success: true, distractors });
+        console.log('[Quiz] 오답 생성: ' + word + ' (품사: ' + posKo + ') → ' + distractors.join(', '));
+        res.json({ success: true, distractors: distractors });
         
     } catch (error) {
         console.error('[Quiz] 오답 생성 오류:', error);
