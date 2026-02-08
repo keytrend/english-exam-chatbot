@@ -324,7 +324,7 @@ app.get('/api/usage', authenticateToken, async (req, res) => {
 // ========== 퀴즈 오답 생성 API ==========
 app.post('/api/vocabulary/quiz-distractors', authenticateToken, async (req, res) => {
     try {
-        const { word, meaning, questionType } = req.body;
+        const { word, meaning, questionType, partOfSpeech } = req.body;
         
         if (!word || !meaning || !questionType) {
             return res.status(400).json({ error: 'word, meaning, questionType 필요' });
@@ -333,25 +333,41 @@ app.post('/api/vocabulary/quiz-distractors', authenticateToken, async (req, res)
         const Anthropic = require('@anthropic-ai/sdk');
         const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
         
+        const pos = partOfSpeech || 'noun';
+        const posKo = { noun: '명사', verb: '동사', adjective: '형용사', adverb: '부사' }[pos] || '명사';
+        
         let prompt;
-                if (questionType === 'en_to_ko') {
-                    prompt = `영어 단어 "${word}"의 뜻은 "${meaning}"입니다.
-        이 단어의 오답 보기 4개를 한국어 뜻으로 만들어주세요.
-        - 반드시 정답과 같은 품사의 단어여야 합니다 (명사면 명사, 동사면 동사, 형용사면 형용사)
-        - 오답은 정답과 명확히 다른 뜻이어야 합니다 (정답이 애매해지면 안 됨)
-        - 각 오답은 간결하게 (1~4단어)
-        반드시 JSON 배열만 출력하세요. 다른 설명 없이.
-        예시 (동사인 경우): ["증가하다", "감소하다", "유지하다", "변화하다"]
-        예시 (명사인 경우): ["환경", "경제", "사회", "문화"]`;
-                } else {
-                    prompt = `영어 단어 "${word}"의 뜻은 "${meaning}"입니다.
-        이 단어와 스펠링이 비슷하거나 같은 어원을 가진 영어 단어 오답 4개를 만들어주세요.
-        - 반드시 정답과 같은 품사여야 합니다 (명사면 명사, 동사면 동사, 형용사면 형용사)
-        - 오답 단어의 뜻은 정답과 명확히 달라야 합니다
-        - 영어 단어만 출력하세요 (한국어 뜻 포함하지 마세요)
-        반드시 JSON 배열만 출력하세요. 다른 설명 없이.
-        예시: ["perceive", "persist", "preserve", "persuade"]`;
-                }
+        if (questionType === 'en_to_ko') {
+            prompt = `영어 단어 "${word}"의 뜻은 "${meaning}"입니다. 이 단어의 품사는 "${posKo}"입니다.
+
+오답 보기 4개를 한국어로 만들어주세요.
+
+[절대 규칙]
+1. 오답 4개 모두 반드시 "${posKo}" 품사여야 합니다.
+   - 명사 예시: "환경", "경제", "사회", "문화"
+   - 형용사 예시: "일시적인", "물리적인", "언어적인", "구조적인"
+   - 동사 예시: "증가하다", "감소하다", "유지하다", "변화하다"
+   - 부사 예시: "점차적으로", "근본적으로", "일시적으로", "지속적으로"
+2. 오답은 정답("${meaning}")과 명확히 다른 뜻이어야 합니다.
+3. 각 오답은 간결하게 (1~4단어)
+
+반드시 JSON 배열만 출력하세요. 다른 설명 없이.`;
+        } else {
+            prompt = `영어 단어 "${word}"의 뜻은 "${meaning}"입니다. 이 단어의 품사는 "${posKo}"입니다.
+
+영어 단어 오답 4개를 만들어주세요.
+
+[절대 규칙]
+1. 오답 4개 모두 반드시 "${posKo}" 품사여야 합니다.
+   - 명사 예시: accumulation, environment, structure, element
+   - 형용사 예시: temporal, linguistic, therapeutic, structural
+   - 동사 예시: increase, decrease, maintain, transform
+   - 부사 예시: gradually, fundamentally, temporarily, constantly
+2. 스펠링이 비슷하거나 같은 어원의 단어 우선
+3. 영어 단어만 출력 (한국어 뜻 포함하지 마세요)
+
+반드시 JSON 배열만 출력하세요. 다른 설명 없이.`;
+        }
         
         const response = await client.messages.create({
             model: 'claude-3-5-haiku-20241022',
