@@ -334,22 +334,24 @@ app.post('/api/vocabulary/quiz-distractors', authenticateToken, async (req, res)
         const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
         
         let prompt;
-        if (questionType === 'en_to_ko') {
-            prompt = `영어 단어 "${word}"의 뜻은 "${meaning}"입니다.
-이 단어의 오답 보기 4개를 한국어 뜻으로 만들어주세요.
-- 오답은 정답과 명확히 다른 뜻이어야 합니다 (정답이 애매해지면 안 됨)
-- 단, 같은 품사/카테고리여서 학생이 고민할 수 있어야 합니다
-- 각 오답은 간결하게 (1~4단어)
-반드시 JSON 배열만 출력하세요. 다른 설명 없이.
-예시: ["증가하다", "감소하다", "유지하다", "변화하다"]`;
-        } else {
-            prompt = `영어 단어 "${word}"의 뜻은 "${meaning}"입니다.
-이 단어와 스펠링이 비슷하거나 같은 어원을 가진 영어 단어 오답 4개를 만들어주세요.
-- 오답 단어의 뜻은 정답과 명확히 달라야 합니다
-- 영어 단어만 출력하세요 (한국어 뜻 포함하지 마세요)
-반드시 JSON 배열만 출력하세요. 다른 설명 없이.
-예시: ["perceive", "persist", "preserve", "persuade"]`;
-        }
+                if (questionType === 'en_to_ko') {
+                    prompt = `영어 단어 "${word}"의 뜻은 "${meaning}"입니다.
+        이 단어의 오답 보기 4개를 한국어 뜻으로 만들어주세요.
+        - 반드시 정답과 같은 품사의 단어여야 합니다 (명사면 명사, 동사면 동사, 형용사면 형용사)
+        - 오답은 정답과 명확히 다른 뜻이어야 합니다 (정답이 애매해지면 안 됨)
+        - 각 오답은 간결하게 (1~4단어)
+        반드시 JSON 배열만 출력하세요. 다른 설명 없이.
+        예시 (동사인 경우): ["증가하다", "감소하다", "유지하다", "변화하다"]
+        예시 (명사인 경우): ["환경", "경제", "사회", "문화"]`;
+                } else {
+                    prompt = `영어 단어 "${word}"의 뜻은 "${meaning}"입니다.
+        이 단어와 스펠링이 비슷하거나 같은 어원을 가진 영어 단어 오답 4개를 만들어주세요.
+        - 반드시 정답과 같은 품사여야 합니다 (명사면 명사, 동사면 동사, 형용사면 형용사)
+        - 오답 단어의 뜻은 정답과 명확히 달라야 합니다
+        - 영어 단어만 출력하세요 (한국어 뜻 포함하지 마세요)
+        반드시 JSON 배열만 출력하세요. 다른 설명 없이.
+        예시: ["perceive", "persist", "preserve", "persuade"]`;
+                }
         
         const response = await client.messages.create({
             model: 'claude-3-5-haiku-20241022',
