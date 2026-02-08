@@ -324,7 +324,7 @@ app.get('/api/usage', authenticateToken, async (req, res) => {
 // ========== 퀴즈 오답 생성 API ==========
 app.post('/api/vocabulary/quiz-distractors', authenticateToken, async (req, res) => {
     try {
-        const { word, meaning, questionType, partOfSpeech } = req.body;
+        const { word, meaning, questionType, partOfSpeech, correctAnswer } = req.body;
         
         if (!word || !meaning || !questionType) {
             return res.status(400).json({ error: 'word, meaning, questionType 필요' });
@@ -336,23 +336,39 @@ app.post('/api/vocabulary/quiz-distractors', authenticateToken, async (req, res)
         const pos = partOfSpeech || 'noun';
         const posKo = { noun: '명사', verb: '동사', adjective: '형용사', adverb: '부사' }[pos] || '명사';
         
+        // 정답의 뜻 개수 파악 (쉼표로 구분)
+        const answerText = correctAnswer || meaning;
+        const meaningCount = answerText.split(',').length;
+        const formatInstruction = meaningCount >= 2 
+            ? `각 오답도 반드시 쉼표로 구분된 ${meaningCount}개의 뜻을 포함해야 합니다. 예: "증가, 상승" 형태`
+            : `각 오답은 1개의 뜻만 간결하게 작성하세요.`;
+        
         let prompt;
         if (questionType === 'en_to_ko') {
-            prompt = `영어 단어 "${word}"의 뜻은 "${meaning}"입니다. 이 단어의 품사는 "${posKo}"입니다.
+            prompt = `영어 단어 "${word}"의 뜻은 "${answerText}"입니다. 이 단어의 품사는 "${posKo}"입니다.
 
 오답 보기 4개를 한국어로 만들어주세요.
 
 [절대 규칙]
 1. 오답 4개 모두 반드시 "${posKo}" 품사여야 합니다.
-   - 명사 예시: "환경", "경제", "사회", "문화"
-   - 형용사 예시: "일시적인", "물리적인", "언어적인", "구조적인"
-   - 동사 예시: "증가하다", "감소하다", "유지하다", "변화하다"
-   - 부사 예시: "점차적으로", "근본적으로", "일시적으로", "지속적으로"
-2. 오답은 정답("${meaning}")과 명확히 다른 뜻이어야 합니다.
-3. 각 오답은 간결하게 (1~4단어)
+2. 오답은 정답("${answerText}")과 명확히 다른 뜻이어야 합니다.
+3. ${formatInstruction}
+4. 정답의 형식과 동일하게 맞추세요. 정답이 "${answerText}" 형태이므로, 오답도 같은 형태여야 합니다.
+
+반드시 JSON 배열만 출력하세요. 다른 설명 없이.
+정답 형태 참고: "${answerText}"`;
+        } else {
+            prompt = `영어 단어 "${word}"의 뜻은 "${meaning}"입니다. 이 단어의 품사는 "${posKo}"입니다.
+
+영어 단어 오답 4개를 만들어주세요.
+
+[절대 규칙]
+1. 오답 4개 모두 반드시 "${posKo}" 품사여야 합니다.
+2. 스펠링이 비슷하거나 같은 어원의 단어 우선
+3. 영어 단어만 출력 (한국어 뜻 포함하지 마세요)
 
 반드시 JSON 배열만 출력하세요. 다른 설명 없이.`;
-        } else {
+        }
             prompt = `영어 단어 "${word}"의 뜻은 "${meaning}"입니다. 이 단어의 품사는 "${posKo}"입니다.
 
 영어 단어 오답 4개를 만들어주세요.
