@@ -321,6 +321,60 @@ app.get('/api/usage', authenticateToken, async (req, res) => {
   }
 });
 
+// ========== 퀴즈 오답 생성 API ==========
+app.post('/api/vocabulary/quiz-distractors', authenticateToken, async (req, res) => {
+    try {
+        const { word, meaning, questionType } = req.body;
+        
+        if (!word || !meaning || !questionType) {
+            return res.status(400).json({ error: 'word, meaning, questionType 필요' });
+        }
+        
+        const Anthropic = require('@anthropic-ai/sdk');
+        const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+        
+        let prompt;
+        if (questionType === 'en_to_ko') {
+            prompt = `영어 단어 "${word}"의 뜻은 "${meaning}"입니다.
+이 단어의 오답 보기 4개를 한국어 뜻으로 만들어주세요.
+- 오답은 정답과 명확히 다른 뜻이어야 합니다 (정답이 애매해지면 안 됨)
+- 단, 같은 품사/카테고리여서 학생이 고민할 수 있어야 합니다
+- 각 오답은 간결하게 (1~4단어)
+반드시 JSON 배열만 출력하세요. 다른 설명 없이.
+예시: ["증가하다", "감소하다", "유지하다", "변화하다"]`;
+        } else {
+            prompt = `영어 단어 "${word}"의 뜻은 "${meaning}"입니다.
+이 단어와 스펠링이 비슷하거나 같은 어원을 가진 영어 단어 오답 4개를 만들어주세요.
+- 오답 단어의 뜻은 정답과 명확히 달라야 합니다
+- 영어 단어만 출력하세요 (한국어 뜻 포함하지 마세요)
+반드시 JSON 배열만 출력하세요. 다른 설명 없이.
+예시: ["perceive", "persist", "preserve", "persuade"]`;
+        }
+        
+        const response = await client.messages.create({
+            model: 'claude-3-5-haiku-20241022',
+            max_tokens: 200,
+            messages: [{ role: 'user', content: prompt }]
+        });
+        
+        const text = response.content[0].text.trim();
+        // JSON 배열 추출 (혹시 앞뒤에 다른 텍스트가 있을 경우 대비)
+        const jsonMatch = text.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) {
+            throw new Error('JSON 파싱 실패: ' + text);
+        }
+        const distractors = JSON.parse(jsonMatch[0]);
+        
+        console.log(`[Quiz] 오답 생성: ${word} → ${distractors.join(', ')}`);
+        res.json({ success: true, distractors });
+        
+    } catch (error) {
+        console.error('[Quiz] 오답 생성 오류:', error);
+        res.status(500).json({ error: '오답 생성 실패', message: error.message });
+    }
+});
+// ========================================
+
 /**
  * 404 핸들러
  */
