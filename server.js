@@ -49,6 +49,7 @@ const {
 const vocabularyRouter = require('./vocabulary');
 const quizRouter = require('./quiz');
 const savedProblemsRouter = require('./saved-problems');
+const wrongAnswersRouter = require('./wrong-answers');
 const { answerQuestion, calculateCost } = require('./ai-router-caching');
 
 // const app = express();
@@ -267,6 +268,12 @@ app.use('/api/vocabulary', vocabularyRouter);
 // ========== 퀴즈 API ==========
 app.use('/api/quiz', quizRouter);
 // ===============================
+// ========== 저장한 문제 API ==========
+app.use('/api/saved-problems', savedProblemsRouter);
+// ====================================
+// ========== 오답노트 API ==========
+app.use('/api/wrong-answers', wrongAnswersRouter);
+// ==================================
 app.get('/api/usage', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -316,6 +323,57 @@ app.get('/api/usage', authenticateToken, async (req, res) => {
     });
   }
 });
+
+// ========== 퀴즈 오답 생성 API ==========
+app.post('/api/vocabulary/quiz-distractors', authenticateToken, async (req, res) => {
+    try {
+        const { word, meaning, questionType, partOfSpeech, correctAnswer } = req.body;
+        
+        if (!word || !meaning || !questionType) {
+            return res.status(400).json({ error: 'word, meaning, questionType 필요' });
+        }
+        
+        const Anthropic = require('@anthropic-ai/sdk');
+        const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+        
+        const pos = partOfSpeech || 'noun';
+        const posKo = { noun: '명사', verb: '동사', adjective: '형용사', adverb: '부사' }[pos] || '명사';
+        
+        const answerText = correctAnswer || meaning;
+        const meaningCount = answerText.split(',').length;
+        const formatInstruction = meaningCount >= 2 
+            ? '각 오답도 반드시 쉼표로 구분된 ' + meaningCount + '개의 뜻을 포함해야 합니다. 예: "증가, 상승" 형태'
+            : '각 오답은 1개의 뜻만 간결하게 작성하세요.';
+        
+        let prompt;
+        if (questionType === 'en_to_ko') {
+            prompt = '영어 단어 "' + word + '"의 뜻은 "' + answerText + '"입니다. 이 단어의 품사는 "' + posKo + '"입니다.\n\n오답 보기 4개를 한국어로 만들어주세요.\n\n[절대 규칙]\n1. 품사 일치: 오답 4개 모두 반드시 "' + posKo + '" 품사여야 합니다.\n2. 뜻 명확히 다름: 오답은 정답("' + answerText + '")과 뜻이 절대 겹치지 않아야 합니다. 정답은 반드시 1개만 있어야 합니다.\n3. ' + formatInstruction + '\n4. 정답 형식과 동일: 정답이 "' + answerText + '" 형태이므로, 오답도 같은 형태여야 합니다.\n5. 단어만 출력: 괄호, 설명, 품사 표기 없이 뜻만 깔끔하게 출력하세요.\n\n반드시 JSON 배열만 출력하세요. 다른 설명 없이.\n정답 형태 참고: "' + answerText + '"';
+        } else {
+            prompt = '영어 단어 "' + word + '"의 뜻은 "' + meaning + '"입니다. 이 단어의 품사는 "' + posKo + '"입니다.\n\n영어 단어 오답 4개를 만들어주세요.\n\n[절대 규칙]\n1. 품사 일치: 오답 4개 모두 반드시 "' + posKo + '" 품사여야 합니다.\n2. 어원 완전히 다름: 정답 단어("' + word + '")와 철자가 유사하거나 같은 어근을 공유하는 단어는 절대 사용하지 마세요.\n   예시: 정답이 "orthodox"면 "orthodontist", "orthopedics", "orthodoxy" 같은 "ortho-" 어근 단어는 안 됩니다.\n3. 뜻 명확히 다름: 오답의 뜻이 정답 뜻("' + meaning + '")과 유사하거나 겹치면 안 됩니다. 정답은 반드시 1개만 있어야 합니다.\n4. 단어만 출력: 영어 단어만 출력하고, 괄호나 한국어 뜻, 설명 없이 깔끔하게 출력하세요.\n\n반드시 JSON 배열만 출력하세요. 다른 설명 없이.\n예시: ["temporary", "essential", "complex", "frequent"]';
+        }
+        
+        const response = await client.messages.create({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 200,
+            messages: [{ role: 'user', content: prompt }]
+        });
+        
+        const text = response.content[0].text.trim();
+        const jsonMatch = text.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) {
+            throw new Error('JSON 파싱 실패: ' + text);
+        }
+        const distractors = JSON.parse(jsonMatch[0]);
+        
+        console.log('[Quiz] 오답 생성: ' + word + ' (품사: ' + posKo + ') → ' + distractors.join(', '));
+        res.json({ success: true, distractors: distractors });
+        
+    } catch (error) {
+        console.error('[Quiz] 오답 생성 오류:', error);
+        res.status(500).json({ error: '오답 생성 실패', message: error.message });
+    }
+});
+// ========================================
 
 /**
  * 404 핸들러
