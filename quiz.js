@@ -44,9 +44,12 @@ router.get('/random', authenticateToken, async (req, res) => {
         
         const word = result.rows[0];
         
+        // 뜻이 여러 개면 첫 번째만 사용 (쉼표로 구분)
+        const mainMeaning = word.meaning.split(',')[0].trim();
+        
         // 5지선다 만들기 (정답 1개 + 오답 4개)
         const choices = [
-            word.meaning,              // 정답
+            mainMeaning,              // 정답
             word.distractor_ko_1,      // 오답 1
             word.distractor_ko_2,      // 오답 2
             word.distractor_ko_3,      // 오답 3
@@ -54,7 +57,7 @@ router.get('/random', authenticateToken, async (req, res) => {
         ];
         
         // 정답 인덱스 저장 (섞기 전)
-        const correctAnswer = word.meaning;
+        const correctAnswer = mainMeaning;
         
         // 배열 섞기 (Fisher-Yates shuffle)
         for (let i = choices.length - 1; i > 0; i--) {
