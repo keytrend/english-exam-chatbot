@@ -193,6 +193,121 @@
         }
         #sendButton:hover { background: #5568d3; }
         #sendButton:disabled { background: #ccc; cursor: not-allowed; }
+/* ===== 퀴즈 버튼 ===== */
+        .quiz-toggle-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        .quiz-toggle-btn:hover {
+            opacity: 0.9;
+        }
+        
+        /* ===== 퀴즈 영역 ===== */
+        .quiz-area {
+            display: none;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            margin: 0 20px 16px 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .quiz-area.active {
+            display: block;
+        }
+        .quiz-word {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        .quiz-pos {
+            text-align: center;
+            color: #999;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .quiz-choice {
+            padding: 14px;
+            margin: 8px 0;
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+            transition: all 0.2s;
+        }
+        .quiz-choice:hover {
+            background: #e9ecef;
+            border-color: #667eea;
+        }
+        .quiz-choice.correct {
+            background: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+        .quiz-choice.wrong {
+            background: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
+        .quiz-choice.disabled {
+            cursor: not-allowed;
+        }
+        .quiz-result {
+            text-align: center;
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            display: none;
+        }
+        .quiz-result.show {
+            display: block;
+        }
+        .quiz-result.correct {
+            background: #d4edda;
+            color: #155724;
+        }
+        .quiz-result.wrong {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .quiz-next-btn {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 12px;
+            display: none;
+        }
+        .quiz-next-btn.show {
+            display: block;
+        }
+        .quiz-close-btn {
+            width: 100%;
+            padding: 10px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 8px;
+        }
     </style>
 </head>
 <body>
@@ -251,6 +366,27 @@
             </div>
         </div>
         <!-- ==================================== -->
+	<!-- ========== 퀴즈 버튼 ========== -->
+        <div style="margin: 0 20px 10px 20px;">
+            <button class="quiz-toggle-btn" onclick="toggleQuiz()">
+                🎯 단어 퀴즈 풀기
+            </button>
+        </div>
+        
+        <!-- ========== 퀴즈 영역 ========== -->
+        <div class="quiz-area" id="quizArea">
+            <div class="quiz-word" id="quizWord">Loading...</div>
+            <div class="quiz-pos" id="quizPos"></div>
+            
+            <div id="quizChoices">
+                <!-- 선택지가 여기에 동적으로 추가됩니다 -->
+            </div>
+            
+            <div class="quiz-result" id="quizResult"></div>
+            <button class="quiz-next-btn" id="quizNextBtn" onclick="loadQuiz()">다음 문제</button>
+            <button class="quiz-close-btn" onclick="toggleQuiz()">퀴즈 닫기</button>
+        </div>
+        <!-- ================================ -->
         <div class="chat-messages" id="chatMessages">
             <div class="message bot">
                 <div class="bubble">
@@ -591,6 +727,96 @@ function toggleChatbot() {
     var container = document.querySelector('.chatbot-container');
     container.classList.toggle('open');
 }
+// ========== 퀴즈 기능 ==========
+function toggleQuiz() {
+    var quizArea = document.getElementById('quizArea');
+    var isActive = quizArea.classList.contains('active');
+    
+    if (isActive) {
+        quizArea.classList.remove('active');
+    } else {
+        quizArea.classList.add('active');
+        loadQuiz();
+    }
+}
+
+async function loadQuiz() {
+    if (!authToken) {
+        showError('로그인이 필요합니다');
+        return;
+    }
+    
+    try {
+        // 이전 결과 초기화
+        document.getElementById('quizResult').className = 'quiz-result';
+        document.getElementById('quizNextBtn').className = 'quiz-next-btn';
+        
+        // API 호출
+        var res = await fetch(API_URL + '/api/quiz/random', {
+            headers: { 'Authorization': 'Bearer ' + authToken }
+        });
+        
+        if (checkAuthError(res)) return;
+        
+        var data = await res.json();
+        
+        if (data.success && data.quiz) {
+            displayQuiz(data.quiz);
+        } else {
+            showError(data.message || '퀴즈를 불러올 수 없습니다');
+        }
+    } catch(e) {
+        console.error('퀴즈 로드 오류:', e);
+        showError('퀴즈 로드 실패');
+    }
+}
+
+function displayQuiz(quiz) {
+    // 단어 표시
+    document.getElementById('quizWord').textContent = quiz.word;
+    document.getElementById('quizPos').textContent = quiz.part_of_speech ? '(' + quiz.part_of_speech + ')' : '';
+    
+    // 선택지 생성
+    var choicesContainer = document.getElementById('quizChoices');
+    choicesContainer.innerHTML = '';
+    
+    quiz.choices.forEach(function(choice, index) {
+        var choiceDiv = document.createElement('div');
+        choiceDiv.className = 'quiz-choice';
+        choiceDiv.textContent = (index + 1) + '. ' + choice;
+        choiceDiv.onclick = function() {
+            selectAnswer(index, quiz.correct_index, quiz.choices);
+        };
+        choicesContainer.appendChild(choiceDiv);
+    });
+    
+    // 정답 인덱스 저장
+    window.currentQuizAnswer = quiz.correct_index;
+}
+
+function selectAnswer(selectedIndex, correctIndex, choices) {
+    // 모든 선택지 비활성화
+    var allChoices = document.querySelectorAll('.quiz-choice');
+    allChoices.forEach(function(choice) {
+        choice.classList.add('disabled');
+        choice.onclick = null;
+    });
+    
+    // 정답/오답 표시
+    var isCorrect = selectedIndex === correctIndex;
+    
+    allChoices[selectedIndex].classList.add(isCorrect ? 'correct' : 'wrong');
+    allChoices[correctIndex].classList.add('correct');
+    
+    // 결과 메시지
+    var resultDiv = document.getElementById('quizResult');
+    resultDiv.className = 'quiz-result show ' + (isCorrect ? 'correct' : 'wrong');
+    resultDiv.textContent = isCorrect ? '🎉 정답입니다!' : '❌ 틀렸습니다! 정답: ' + choices[correctIndex];
+    
+    // 다음 문제 버튼 표시
+    document.getElementById('quizNextBtn').classList.add('show');
+}
+// ==============================
 </script>
 </body>
 </html>
