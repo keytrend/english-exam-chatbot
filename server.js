@@ -47,6 +47,8 @@ const {
   getUsageStats 
 } = require('./database');
 const vocabularyRouter = require('./vocabulary');
+const quizRouter = require('./quiz');
+const savedProblemsRouter = require('./saved-problems');
 const { answerQuestion, calculateCost } = require('./ai-router-caching');
 
 // const app = express();
@@ -262,6 +264,8 @@ const responseTime = Date.now() - startTime;
  */
 // ========== 단어장 API ==========
 app.use('/api/vocabulary', vocabularyRouter);
+// ========== 퀴즈 API ==========
+app.use('/api/quiz', quizRouter);
 // ===============================
 app.get('/api/usage', authenticateToken, async (req, res) => {
   try {
