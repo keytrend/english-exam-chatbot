@@ -44,16 +44,22 @@ router.get('/random', authenticateToken, async (req, res) => {
         
         const word = result.rows[0];
         
-        // 뜻 원본 그대로 사용 (오답과 형식 통일)
-        const mainMeaning = word.meaning.trim();
+        // 정답: 첫 번째 뜻만 사용
+        const mainMeaning = word.meaning.split(',')[0].trim();
+        
+        // 오답도 첫 번째 뜻만 사용 (형식 통일)
+        const d1 = word.distractor_ko_1 ? word.distractor_ko_1.split(',')[0].trim() : '';
+        const d2 = word.distractor_ko_2 ? word.distractor_ko_2.split(',')[0].trim() : '';
+        const d3 = word.distractor_ko_3 ? word.distractor_ko_3.split(',')[0].trim() : '';
+        const d4 = word.distractor_ko_4 ? word.distractor_ko_4.split(',')[0].trim() : '';
         
         // 5지선다 만들기 (정답 1개 + 오답 4개)
         const choices = [
-            mainMeaning,              // 정답
-            word.distractor_ko_1,      // 오답 1
-            word.distractor_ko_2,      // 오답 2
-            word.distractor_ko_3,      // 오답 3
-            word.distractor_ko_4       // 오답 4
+            mainMeaning,    // 정답
+            d1,             // 오답 1
+            d2,             // 오답 2
+            d3,             // 오답 3
+            d4              // 오답 4
         ];
         
         // 정답 인덱스 저장 (섞기 전)
