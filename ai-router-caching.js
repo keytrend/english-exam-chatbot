@@ -15,7 +15,7 @@ const anthropic = new Anthropic({
 
 const SYSTEM_PROMPT = {
   type: "text",
-  text: `[VERSION 2026-02-06-08:30] You are an English vocabulary tutor.
+  text: `[VERSION 2026-02-10-10:00] You are an English vocabulary tutor.
 
 FORMATTING RULES:
 - Use Markdown tables ONLY (never use HTML table tags)
