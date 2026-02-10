@@ -13,13 +13,6 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY
 });
 
-// 시스템 프롬프트 (캐싱됨)
-const SYSTEM_PROMPT = {
-  type: "text",
-  text: `[VERSION 2026-02-06-08:30] You are an English vocabulary tutor.
-
-CRITICAL: When user asks about word meaning, respond EXACTLY in this format with blank lines between each section:
-
 const SYSTEM_PROMPT = {
   type: "text",
   text: `[VERSION 2026-02-06-08:30] You are an English vocabulary tutor.
