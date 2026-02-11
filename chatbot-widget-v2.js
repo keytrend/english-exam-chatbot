@@ -540,14 +540,20 @@
 
                 <!-- 저장한 문제 영역 -->
                 <div id="savedProblemsArea" style="display: none; flex: 1; overflow-y: auto; padding: 16px; background: #fafafa;">
+                    <button id="saveCurrentProblemBtn" onclick="window.showSaveProblemDialog()" style="width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; margin-bottom: 16px;">
+                        📌 현재 페이지 문제 저장하기
+                    </button>
                     <div id="problemsList" style="display: flex; flex-direction: column; gap: 12px;"></div>
-                    <div id="problemsEmpty" style="display: none; text-align: center; padding: 60px 20px; color: #999;">📌 저장된 문제가 없습니다.</div>
+                    <div id="problemsEmpty" style="text-align: center; padding: 60px 20px; color: #999;">📌 저장된 문제가 없습니다.<br>위 버튼을 눌러 현재 페이지 문제를 저장하세요!</div>
                 </div>
 
                 <!-- 오답노트 영역 -->
                 <div id="wrongAnswersArea" style="display: none; flex: 1; overflow-y: auto; padding: 16px; background: #fafafa;">
+                    <button id="addWrongAnswerBtn" onclick="window.showWrongAnswerDialog()" style="width: 100%; padding: 14px; background: linear-gradient(135deg, #fc6c85, #f5576c); color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; margin-bottom: 16px;">
+                        ❌ 오답 노트 추가하기
+                    </button>
                     <div id="wrongAnswersList" style="display: flex; flex-direction: column; gap: 12px;"></div>
-                    <div id="wrongAnswersEmpty" style="display: none; text-align: center; padding: 60px 20px; color: #999;">❌ 등록된 오답이 없습니다.</div>
+                    <div id="wrongAnswersEmpty" style="text-align: center; padding: 60px 20px; color: #999;">❌ 등록된 오답이 없습니다.<br>위 버튼을 눌러 오답을 기록하세요!</div>
                 </div>
                 
                 <div class="chat-messages" id="chatMessages">
@@ -788,6 +794,9 @@
         document.getElementById('loginArea').classList.add('hidden');
         document.getElementById('signupArea').classList.remove('visible');
         document.getElementById('chatArea').classList.add('visible');
+        
+        // 채팅 기록 복원 (30일 보존)
+        window.loadChatHistory();
         
         // 탭 카운트 로드
         setTimeout(function() {
@@ -1109,6 +1118,9 @@
         msgDiv.appendChild(timeDiv);
         container.appendChild(msgDiv);
         container.scrollTop = container.scrollHeight;
+        
+        // 채팅 기록 저장 (30일)
+        window.saveChatHistory();
     };
 
     // ========== 단어 뜻 질문 포맷 (미니멀) ==========
@@ -1427,9 +1439,12 @@
                     var card = document.createElement('div');
                     card.style.cssText = 'background: white; padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0;';
                     var courseDisplay = (p.course_name || '').replace(/_/g, ' ');
-                    card.innerHTML = '<div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><div style="color: #667eea; font-weight: bold;">📝 ' + courseDisplay + ' - ' + p.problem_number + '번</div>' +
+                    var memoHtml = p.memo ? '<div style="background: #f0f3ff; padding: 8px 10px; border-radius: 6px; margin: 8px 0; font-size: 13px; color: #555;">📝 ' + p.memo + '</div>' : '';
+                    card.innerHTML = '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">' +
+                        '<div style="color: #667eea; font-weight: bold; font-size: 14px;">📌 ' + courseDisplay + ' - ' + (p.problem_number || '') + '번</div>' +
                         '<button onclick="window.deleteProblem(' + p.id + ')" style="background: #dc3545; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">삭제</button></div>' +
-                        '<a href="' + p.problem_url + '" style="display: block; padding: 8px; background: #f0f3ff; border-radius: 6px; text-decoration: none; color: #667eea; text-align: center;">🔗 문제 보러가기</a>';
+                        memoHtml +
+                        '<a href="' + (p.problem_url || '#') + '" style="display: block; padding: 10px; background: #f0f3ff; border-radius: 6px; text-decoration: none; color: #667eea; text-align: center; font-size: 14px;">🔗 문제 보러가기</a>';
                     listEl.appendChild(card);
                 });
                 if (countEl) countEl.textContent = data.problems.length;
@@ -1474,10 +1489,13 @@
                     var card = document.createElement('div');
                     card.style.cssText = 'background: white; padding: 16px; border-radius: 8px; border: 1px solid #ffcdd2; border-left: 4px solid #fc6c85;';
                     var courseDisplay = (a.course_name || '').replace(/_/g, ' ');
-                    card.innerHTML = '<div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><div style="color: #fc6c85; font-weight: bold;">❌ ' + courseDisplay + ' - ' + a.problem_number + '번</div>' +
+                    var reasonHtml = a.wrong_reason ? '<div style="background: #fff3e0; padding: 8px 10px; border-radius: 6px; margin: 8px 0; font-size: 13px;">💭 ' + a.wrong_reason + '</div>' : '';
+                    var noteHtml = a.note ? '<div style="font-size: 13px; color: #555; margin-bottom: 8px; background: #f5f5f5; padding: 6px 10px; border-radius: 4px;">📝 ' + a.note + '</div>' : '';
+                    card.innerHTML = '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">' +
+                        '<div style="color: #fc6c85; font-weight: bold; font-size: 14px;">❌ ' + courseDisplay + ' - ' + (a.problem_number || '') + '번</div>' +
                         '<button onclick="window.deleteWrongAnswer(' + a.id + ')" style="background: #dc3545; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">삭제</button></div>' +
-                        '<div style="background: #fff3e0; padding: 10px; border-radius: 6px; margin-bottom: 8px; font-size: 14px;">💭 ' + (a.wrong_reason || '') + '</div>' +
-                        '<a href="' + a.problem_url + '" style="display: block; padding: 8px; background: #f0f3ff; border-radius: 6px; text-decoration: none; color: #667eea; text-align: center;">🔗 다시 풀기</a>';
+                        reasonHtml + noteHtml +
+                        '<a href="' + (a.problem_url || '#') + '" style="display: block; padding: 10px; background: #f0f3ff; border-radius: 6px; text-decoration: none; color: #667eea; text-align: center; font-size: 14px;">🔗 다시 풀기</a>';
                     listEl.appendChild(card);
                 });
                 if (countEl) countEl.textContent = data.wrongAnswers.length;
@@ -1500,6 +1518,167 @@
             var data = await res.json();
             if (data.success) { alert('✅ 삭제!'); window.loadWrongAnswersList(); }
         } catch(e) { alert('❌ 삭제 실패'); }
+    };
+
+    // ========== 현재 페이지 문제 저장 다이얼로그 ==========
+    window.showSaveProblemDialog = function() {
+        var pageUrl = window.location.href;
+        var pageTitle = document.title || '';
+        
+        // 페이지 경로에서 코스명/문제 정보 추출
+        var pathParts = window.location.pathname.split('/');
+        var courseName = '';
+        var lessonName = '';
+        for (var i = 0; i < pathParts.length; i++) {
+            if (pathParts[i] === 'take' && pathParts[i+1]) {
+                courseName = pathParts[i+1].replace(/_/g, ' ');
+            }
+        }
+        lessonName = pageTitle.replace(/ - .*$/, '').trim() || '문제';
+
+        var problemNum = prompt('📌 문제 번호를 입력하세요\n\n현재 페이지: ' + lessonName + '\n\n예: 1, 2, 3...', '');
+        if (problemNum === null || problemNum.trim() === '') return;
+
+        var memo = prompt('📝 메모 (선택사항)\n\n예: "빈칸 추론 문제, 어려움"', '');
+
+        window.saveProblem({
+            course_name: courseName || lessonName,
+            problem_number: problemNum.trim(),
+            problem_url: pageUrl,
+            memo: memo || ''
+        });
+    };
+
+    window.saveProblem = async function(data) {
+        try {
+            var res = await fetch(window.API_URL + '/api/saved-problems/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + window.authToken },
+                body: JSON.stringify(data),
+                credentials: 'omit'
+            });
+            var result = await res.json();
+            if (result.success) {
+                alert('✅ 문제가 저장되었습니다!');
+                var countEl = document.getElementById('problems-count');
+                if (countEl) countEl.textContent = (parseInt(countEl.textContent) || 0) + 1;
+                window.loadSavedProblemsList();
+            } else {
+                alert('⚠️ ' + (result.message || '저장 실패'));
+            }
+        } catch(e) {
+            alert('❌ 저장 실패');
+        }
+    };
+
+    // ========== 오답 노트 추가 다이얼로그 ==========
+    window.showWrongAnswerDialog = function() {
+        var pageUrl = window.location.href;
+        var pageTitle = document.title || '';
+        var pathParts = window.location.pathname.split('/');
+        var courseName = '';
+        for (var i = 0; i < pathParts.length; i++) {
+            if (pathParts[i] === 'take' && pathParts[i+1]) {
+                courseName = pathParts[i+1].replace(/_/g, ' ');
+            }
+        }
+        var lessonName = pageTitle.replace(/ - .*$/, '').trim() || '문제';
+
+        var problemNum = prompt('❌ 오답 노트\n\n현재 페이지: ' + lessonName + '\n\n틀린 문제 번호를 입력하세요:', '');
+        if (problemNum === null || problemNum.trim() === '') return;
+
+        var wrongReason = prompt('📝 틀린 이유를 적어주세요 (필수)\n\n예: "어휘 뜻을 몰라서", "시간 부족", "함정에 걸림"', '');
+        if (wrongReason === null || wrongReason.trim() === '') {
+            alert('⚠️ 틀린 이유는 필수 입력입니다.');
+            return;
+        }
+
+        var note = prompt('추가 메모 (선택사항):', '');
+
+        window.saveWrongAnswer({
+            course_name: courseName || lessonName,
+            problem_number: problemNum.trim(),
+            problem_url: pageUrl,
+            wrong_reason: wrongReason.trim(),
+            note: note || ''
+        });
+    };
+
+    window.saveWrongAnswer = async function(data) {
+        try {
+            var res = await fetch(window.API_URL + '/api/wrong-answers/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + window.authToken },
+                body: JSON.stringify(data),
+                credentials: 'omit'
+            });
+            var result = await res.json();
+            if (result.success) {
+                alert('✅ 오답이 기록되었습니다!');
+                var countEl = document.getElementById('wrong-count');
+                if (countEl) countEl.textContent = (parseInt(countEl.textContent) || 0) + 1;
+                window.loadWrongAnswersList();
+            } else {
+                alert('⚠️ ' + (result.message || '저장 실패'));
+            }
+        } catch(e) {
+            alert('❌ 저장 실패');
+        }
+    };
+
+    // ========== 채팅 기록 30일 보존 (localStorage) ==========
+    window.saveChatHistory = function() {
+        var chatContainer = document.getElementById('chatMessages');
+        if (!chatContainer) return;
+        var pageId = window.getPageId();
+        var key = 'chatHistory_' + pageId;
+        var data = {
+            html: chatContainer.innerHTML,
+            savedAt: Date.now(),
+            expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000) // 30일
+        };
+        try {
+            localStorage.setItem(key, JSON.stringify(data));
+        } catch(e) {
+            // localStorage 용량 초과 시 오래된 기록 삭제
+            window.cleanOldChatHistory();
+            try { localStorage.setItem(key, JSON.stringify(data)); } catch(e2) {}
+        }
+    };
+
+    window.loadChatHistory = function() {
+        var pageId = window.getPageId();
+        var key = 'chatHistory_' + pageId;
+        try {
+            var saved = localStorage.getItem(key);
+            if (!saved) return false;
+            var data = JSON.parse(saved);
+            if (Date.now() > data.expiresAt) {
+                localStorage.removeItem(key);
+                return false;
+            }
+            var chatContainer = document.getElementById('chatMessages');
+            if (chatContainer && data.html) {
+                chatContainer.innerHTML = data.html;
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+                return true;
+            }
+        } catch(e) {}
+        return false;
+    };
+
+    window.cleanOldChatHistory = function() {
+        var keysToDelete = [];
+        for (var i = 0; i < localStorage.length; i++) {
+            var key = localStorage.key(i);
+            if (key && key.startsWith('chatHistory_')) {
+                try {
+                    var data = JSON.parse(localStorage.getItem(key));
+                    if (Date.now() > data.expiresAt) keysToDelete.push(key);
+                } catch(e) { keysToDelete.push(key); }
+            }
+        }
+        keysToDelete.forEach(function(k) { localStorage.removeItem(k); });
     };
 
     // ========== 수능 단어 퀴즈 ==========
