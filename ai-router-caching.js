@@ -3,7 +3,17 @@
  * Phase: 2
  * 목적: AI 모델 라우팅 (Haiku 4.5 / Sonnet 4.5) + Prompt Caching
  * 모델: claude-haiku-4-5-20251001, claude-sonnet-4-5-20250929
+ * 
+ * ===== 비용 구조 =====
+ * 단어 뜻 질문 (Haiku 4.5): ~₩0.17/회
+ *   - Input: 5 토큰, Output: 25 토큰
+ * 복잡한 질문 기본 (Sonnet 4.5): ~₩5.5/회
+ *   - Input: 100 토큰, Output: 350 토큰
+ * [더 자세히] (Sonnet 4.5): ~₩9.5/회 추가
+ *   - Input: 200 토큰, Output: 600 토큰
+ * 
  * 작성일: 2026-02-02
+ * 수정일: 2026-02-11 (모델 분기 최적화)
  */
 
 require('dotenv').config();
@@ -13,9 +23,33 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY
 });
 
-const SYSTEM_PROMPT = {
+// ========== 시스템 프롬프트: 단어 뜻 질문 (Haiku 4.5) ==========
+// 최소한의 프롬프트로 비용 절약
+const SIMPLE_SYSTEM_PROMPT = {
   type: "text",
-  text: `[VERSION 2026-02-10-11:00] You are an English vocabulary tutor.
+  text: `You are a vocabulary tutor for Korean students.
+When given an English word, respond with ONLY this exact format:
+
+word 한국어뜻(품사)
+
+Examples:
+predictive 예측적인(형용사)
+unprecedented 전례 없는(형용사)
+facilitate 촉진하다, 용이하게 하다(동사)
+resilience 회복력, 탄력(명사)
+
+Rules:
+- Output ONLY one line
+- Include part of speech in parentheses: 명사, 동사, 형용사, 부사
+- If the word has multiple common meanings, separate with comma
+- NO explanations, NO etymology, NO examples, NO extra text`,
+  cache_control: { type: "ephemeral" }
+};
+
+// ========== 시스템 프롬프트: 복잡한 질문 (Sonnet 4.5) ==========
+const COMPLEX_SYSTEM_PROMPT = {
+  type: "text",
+  text: `[VERSION 2026-02-11] You are an English tutor for Korean students preparing for 수능/TOEFL/SAT.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ ABSOLUTE RULE - VIOLATION WILL CAUSE SYSTEM FAILURE ⚠️
@@ -28,22 +62,31 @@ For comparison tables, use this Markdown format ONLY:
 | 구분 | 항목1 | 항목2 |
 |------|------|------|
 | 내용1 | 설명1 | 설명2 |
-| 내용2 | 설명3 | 설명4 |
-
-Example comparison response:
-"## 핵심 차이점
-
-| 구분 | ①번 | ②번 |
-|------|-----|-----|
-| 의미 | 계산 중심 | 초월 중심 |
-| 태도 | 이성적 | 직관적 |
-
-설명..."
 
 NEVER use HTML. ALWAYS use Markdown pipes for tables.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-CRITICAL: When user asks about word meaning, respond EXACTLY in this format with blank lines between each section:
+You handle complex questions: grammar explanations, passage analysis, 
+problem solving, sentence structure, reading comprehension, etc.
+
+Guidelines:
+- Answer in Korean (한국어)
+- Be thorough but concise (150-500 tokens for basic answer)
+- Use bullet points and numbered lists for clarity
+- Include relevant examples
+- For passage analysis, quote specific parts
+- For grammar, provide the rule + exceptions + examples
+- Use Markdown formatting only (NO HTML)`,
+  cache_control: { type: "ephemeral" }
+};
+
+// ========== 기존 단어 정보 프롬프트 (어원 포함 상세 버전) ==========
+// "더 자세히" 기능에서 사용
+const DETAILED_WORD_PROMPT = {
+  type: "text",
+  text: `[VERSION 2026-02-11] You are an English vocabulary tutor.
+
+CRITICAL: When user asks about word meaning, respond EXACTLY in this format:
 
 ━━━━ 📘 단어 정보 ━━━━
 word 한글뜻
@@ -52,7 +95,7 @@ word 한글뜻
 
 🔗 어원 관련 단어: 3-5 high school level words sharing the same root (format: word1(뜻), word2(뜻), word3(뜻))
 
-🧠 암기법: Create a memorable story connecting etymology to meaning in Korean, and mention one of the related words to help memory
+🧠 암기법: Create a memorable story connecting etymology to meaning in Korean
 
 🔄 동의어: synonym1, synonym2, synonym3
 
@@ -61,83 +104,28 @@ word 한글뜻
 📝 예문: English example sentence.
         한글 번역
 
-For other questions: Use Markdown format ONLY. NO HTML.`,
+Use this exact format with these exact emoji headers. NO HTML tags.`,
   cache_control: { type: "ephemeral" }
 };
 
 
 /**
- * 질문 분류 함수 (Haiku vs Sonnet)
+ * 단어 뜻 질문 → Haiku 4.5 (초절약)
+ * 비용: ~₩0.17/회
  */
-function classifyQuestion(question) {
-  // Tier 1: 간단한 질문 → Haiku
-  const simplePatterns = [
-    /^[가-힣a-zA-Z]+\s*(뜻|의미|meaning|definition)\?*$/i,
-    /^정답\s*(은|이)\s*몇\s*번/i,
-    /^[a-zA-Z]+\s*\?*$/,
-    /해석|번역|translate/i,
-    /구문|문법|grammar/i,
-    /예문|example sentence/i,
-    /동의어|반의어|synonym|antonym/i
-  ];
-  
-  for (let pattern of simplePatterns) {
-    if (pattern.test(question.trim())) {
-      return 'simple';
-    }
-  }
-  
-  // Tier 2: 복잡한 추론 → Sonnet
-  const complexPatterns = [
-    /왜|why|이유|reason/i,
-    /차이|비교|compare|difference/i,
-    /오답|틀린|wrong answer/i,
-    /함정|trap|pitfall/i,
-    /논리|logic|구조|structure/i,
-    /[①②③④⑤]\s*번.*[①②③④⑤]\s*번/,
-    /정답.*아니[고냐]/i,
-    /.*분석|analysis/i
-  ];
-  
-  for (let pattern of complexPatterns) {
-    if (pattern.test(question)) {
-      return 'complex';
-    }
-  }
-  
-  // 기본값: 안전하게 Sonnet
-  return 'complex';
-}
-
-/**
- * Claude Haiku로 질문 (간단한 질문)
- */
-async function askClaudeHaiku(question, context) {
+async function askSimpleWord(question) {
   try {
-    const messages = [{
-      role: "user",
-      content: [
-        {
-          type: "text",
-          text: `[해설 자료]\n${context}`,
-          cache_control: { type: "ephemeral" }
-        },
-        {
-          type: "text",
-          text: `\n\n[학생 질문]\n${question}\n\nUSE THE EXACT FORMAT ABOVE.`
-        }
-      ]
-    }];
-    
     const response = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 1000,
-      system: [SYSTEM_PROMPT],
-      messages: messages
+      max_tokens: 80,
+      system: [SIMPLE_SYSTEM_PROMPT],
+      messages: [{
+        role: "user",
+        content: question
+      }]
     });
     
-    // 토큰 사용량 로그
-    console.log('[Haiku] Token Usage:', {
+    console.log('[Haiku-Simple] Token Usage:', {
       input: response.usage.input_tokens,
       cache_creation: response.usage.cache_creation_input_tokens || 0,
       cache_read: response.usage.cache_read_input_tokens || 0,
@@ -145,46 +133,52 @@ async function askClaudeHaiku(question, context) {
     });
     
     return {
-      answer: response.content[0].text,
+      answer: response.content[0].text.trim(),
       model: 'haiku',
+      questionType: 'simple',
       usage: response.usage
     };
     
   } catch (error) {
-    console.error('[Haiku] Error:', error.message);
+    console.error('[Haiku-Simple] Error:', error.message);
     throw error;
   }
 }
 
+
 /**
- * Claude Sonnet으로 질문 (복잡한 추론)
+ * 복잡한 질문 기본 답변 → Sonnet 4.5
+ * 비용: ~₩5.5/회
  */
-async function askClaudeSonnet(question, context) {
+async function askComplex(question, context) {
   try {
     const messages = [{
       role: "user",
-      content: [
-        {
-          type: "text",
-          text: `[해설 자료]\n${context}`,
-          cache_control: { type: "ephemeral" }
-        },
-        {
-          type: "text",
-          text: `\n\n[학생 질문]\n${question}\n\nUSE THE EXACT FORMAT ABOVE.`
-        }
-      ]
+      content: []
     }];
+    
+    // 해설 자료가 있으면 캐싱하여 추가
+    if (context && context.trim()) {
+      messages[0].content.push({
+        type: "text",
+        text: `[해설 자료]\n${context}`,
+        cache_control: { type: "ephemeral" }
+      });
+    }
+    
+    messages[0].content.push({
+      type: "text",
+      text: `[학생 질문]\n${question}\n\nAnswer in Korean. Use Markdown format only. NO HTML.`
+    });
     
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-5-20250929",
-      max_tokens: 4000,
-      system: [SYSTEM_PROMPT],
+      max_tokens: 500,
+      system: [COMPLEX_SYSTEM_PROMPT],
       messages: messages
     });
     
-    // 토큰 사용량 로그
-    console.log('[Sonnet] Token Usage:', {
+    console.log('[Sonnet-Complex] Token Usage:', {
       input: response.usage.input_tokens,
       cache_creation: response.usage.cache_creation_input_tokens || 0,
       cache_read: response.usage.cache_read_input_tokens || 0,
@@ -194,42 +188,142 @@ async function askClaudeSonnet(question, context) {
     return {
       answer: response.content[0].text,
       model: 'sonnet',
+      questionType: 'complex',
       usage: response.usage
     };
     
   } catch (error) {
-    console.error('[Sonnet] Error:', error.message);
+    console.error('[Sonnet-Complex] Error:', error.message);
     throw error;
   }
 }
 
+
+/**
+ * [더 자세히] 답변 → Sonnet 4.5
+ * 기존 답변을 확장하여 상세 설명
+ * 비용: ~₩9.5/회 추가
+ */
+async function askDetailedFollow(question, previousAnswer, context) {
+  try {
+    const messages = [
+      {
+        role: "user",
+        content: []
+      }
+    ];
+    
+    if (context && context.trim()) {
+      messages[0].content.push({
+        type: "text",
+        text: `[해설 자료]\n${context}`,
+        cache_control: { type: "ephemeral" }
+      });
+    }
+    
+    messages[0].content.push({
+      type: "text",
+      text: `[이전 질문]\n${question}\n\n[이전 답변]\n${previousAnswer}\n\n[요청]\n위 답변을 확장하여 더 상세히 설명해주세요. 추가 예문, 비교 분석, 실전 적용법 등을 포함해주세요.\nUse Markdown format only. NO HTML.`
+    });
+    
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-5-20250929",
+      max_tokens: 800,
+      system: [COMPLEX_SYSTEM_PROMPT],
+      messages: messages
+    });
+    
+    console.log('[Sonnet-Detailed] Token Usage:', {
+      input: response.usage.input_tokens,
+      cache_creation: response.usage.cache_creation_input_tokens || 0,
+      cache_read: response.usage.cache_read_input_tokens || 0,
+      output: response.usage.output_tokens
+    });
+    
+    return {
+      answer: response.content[0].text,
+      model: 'sonnet',
+      questionType: 'detailed',
+      usage: response.usage
+    };
+    
+  } catch (error) {
+    console.error('[Sonnet-Detailed] Error:', error.message);
+    throw error;
+  }
+}
+
+
+/**
+ * 단어 상세 정보 (어원 포함) → Haiku 4.5
+ * 단어장 탭에서 "상세 보기" 시 사용
+ */
+async function askWordDetail(word) {
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 1000,
+      system: [DETAILED_WORD_PROMPT],
+      messages: [{
+        role: "user",
+        content: `${word}의 뜻과 상세 정보를 알려주세요. USE THE EXACT FORMAT ABOVE.`
+      }]
+    });
+    
+    console.log('[Haiku-Detail] Token Usage:', {
+      input: response.usage.input_tokens,
+      output: response.usage.output_tokens
+    });
+    
+    return {
+      answer: response.content[0].text,
+      model: 'haiku',
+      questionType: 'word-detail',
+      usage: response.usage
+    };
+    
+  } catch (error) {
+    console.error('[Haiku-Detail] Error:', error.message);
+    throw error;
+  }
+}
+
+
 /**
  * 메인 라우팅 함수
+ * 프론트엔드에서 전달받은 questionType에 따라 분기
  */
-async function answerQuestion(question, context) {
+async function answerQuestion(question, context, questionType) {
   const startTime = Date.now();
   
-  // 질문 분류
-  const questionType = classifyQuestion(question);
-  console.log(`[Router] Question type: ${questionType}`);
+  // 프론트엔드에서 전달받은 questionType 우선 사용
+  const type = questionType || 'complex';
+  
+  console.log(`[Router] Question type: ${type} | Question: ${question.substring(0, 50)}...`);
   
   let result;
   
-  if (questionType === 'simple') {
-    result = await askClaudeHaiku(question, context);
+  if (type === 'simple') {
+    // 단어 뜻 질문 → Haiku 4.5 (초절약, context 불필요)
+    result = await askSimpleWord(question);
+  } else if (type === 'detailed') {
+    // [더 자세히] → Sonnet 4.5 (확장 답변)
+    // question에 이전 답변 정보가 포함되어야 함
+    result = await askComplex(question, context);
   } else {
-    result = await askClaudeSonnet(question, context);
+    // 복잡한 질문 → Sonnet 4.5 (기본 답변)
+    result = await askComplex(question, context);
   }
   
   const duration = Date.now() - startTime;
-  console.log(`[Router] Response time: ${duration}ms`);
+  console.log(`[Router] Model: ${result.model} | Response time: ${duration}ms`);
   
   return {
     ...result,
-    questionType,
     responseTime: duration
   };
 }
+
 
 /**
  * 비용 계산 함수
@@ -250,7 +344,7 @@ function calculateCost(usage, model) {
     }
   };
   
-  const rate = rates[model];
+  const rate = rates[model] || rates.haiku;
   
   const cost = {
     input: (usage.input_tokens || 0) * rate.input,
@@ -264,10 +358,12 @@ function calculateCost(usage, model) {
   return cost;
 }
 
+
 module.exports = {
   answerQuestion,
-  classifyQuestion,
   calculateCost,
-  askClaudeHaiku,
-  askClaudeSonnet
+  askSimpleWord,
+  askComplex,
+  askDetailedFollow,
+  askWordDetail
 };
