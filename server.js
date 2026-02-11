@@ -51,6 +51,7 @@ const quizRouter = require('./quiz');
 const savedProblemsRouter = require('./saved-problems');
 const wrongAnswersRouter = require('./wrong-answers');
 const { answerQuestion, calculateCost } = require('./ai-router-caching');
+const authRouter = require('./auth-routes');
 
 // const app = express();
 const PORT = process.env.PORT || 3000;
@@ -274,6 +275,9 @@ app.use('/api/saved-problems', savedProblemsRouter);
 // ========== 오답노트 API ==========
 app.use('/api/wrong-answers', wrongAnswersRouter);
 // ==================================
+// ========== 인증 API ==========
+app.use('/api/auth', authRouter);
+// ==============================
 app.get('/api/usage', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
