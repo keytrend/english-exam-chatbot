@@ -1,76 +1,71 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 영어 튜터</title>
-    <style>
+(function() {
+    'use strict';
+
+    // ========== CSS 삽입 ==========
+    var style = document.createElement('style');
+    style.textContent = `
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #f5f5f5;
-            height: 100vh;
-            margin: 0;
-            padding: 0;
         }
 
-/* 떠다니는 챗봇 버튼 */
-#chatbot-toggle-btn {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    width: 60px;
-    height: 60px;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    border-radius: 50%;
-    border: none;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
-    transition: transform 0.3s;
-}
+        /* 떠다니는 챗봇 버튼 */
+        #chatbot-toggle-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 50%;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            transition: transform 0.3s;
+        }
 
-#chatbot-toggle-btn:hover {
-    transform: scale(1.1);
-}
+        #chatbot-toggle-btn:hover {
+            transform: scale(1.1);
+        }
 
-#chatbot-toggle-btn svg {
-    width: 30px;
-    height: 30px;
-    fill: white;
-}
+        #chatbot-toggle-btn svg {
+            width: 30px;
+            height: 30px;
+            fill: white;
+        }
 
-.chatbot-container {
-    position: fixed;
-    bottom: 90px;
-    right: 20px;
-    width: 400px;
-    height: 600px;
-    background: white;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-    border-radius: 16px;
-    display: none;
-    flex-direction: column;
-    overflow: hidden;
-    z-index: 9999;
-}
+        .chatbot-container {
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: 400px;
+            height: 600px;
+            background: white;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            border-radius: 16px;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 9999;
+        }
 
-.chatbot-container.open {
-    display: flex;
-}
+        .chatbot-container.open {
+            display: flex;
+        }
 
-@media (max-width: 480px) {
-    .chatbot-container {
-        width: calc(100vw - 40px);
-        height: calc(100vh - 120px);
-        right: 20px;
-        bottom: 90px;
-    }
-}
+        @media (max-width: 480px) {
+            .chatbot-container {
+                width: calc(100vw - 40px);
+                height: calc(100vh - 120px);
+                right: 20px;
+                bottom: 90px;
+            }
+        }
 
         /* ===== 로그인 ===== */
         .login-area {
@@ -156,7 +151,6 @@
             font-family: 'Consolas', monospace;
         }
 
-        /* 모든 줄 동일 스타일 → 좌측 정렬 통일 */
         .message.bot .bubble .line {
             display: block;
             text-align: left;
@@ -193,7 +187,8 @@
         }
         #sendButton:hover { background: #5568d3; }
         #sendButton:disabled { background: #ccc; cursor: not-allowed; }
-/* ===== 퀴즈 버튼 ===== */
+
+        /* ===== 퀴즈 버튼 ===== */
         .quiz-toggle-btn {
             width: 100%;
             padding: 14px;
@@ -308,515 +303,485 @@
             cursor: pointer;
             margin-top: 8px;
         }
-    </style>
-</head>
-<body>
-<!-- 챗봇 토글 버튼 -->
-<button id="chatbot-toggle-btn" onclick="toggleChatbot()">
-    <svg viewBox="0 0 24 24">
-        <path d="M12 2C6.48 2 2 6.48 2 12c0 1.54.36 3 .97 4.29L2 22l5.71-.97C9 21.64 10.46 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.38 0-2.68-.3-3.86-.84l-.28-.14-2.9.49.49-2.9-.14-.28C4.3 14.68 4 13.38 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z"/>
-    </svg>
-</button>
+    `;
+    document.head.appendChild(style);
 
-<div class="chatbot-container">
+    // ========== HTML 삽입 ==========
+    var html = `
+        <!-- 챗봇 토글 버튼 -->
+        <button id="chatbot-toggle-btn" onclick="window.toggleChatbot()">
+            <svg viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12c0 1.54.36 3 .97 4.29L2 22l5.71-.97C9 21.64 10.46 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.38 0-2.68-.3-3.86-.84l-.28-.14-2.9.49.49-2.9-.14-.28C4.3 14.68 4 13.38 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z"/>
+            </svg>
+        </button>
 
-    <!-- 로그인 -->
-    <div id="loginArea" class="login-area">
-        <h2>🎓 AI 영어 튜터</h2>
-        <p>로그인하여 시작하세요</p>
-        <input type="text" id="userId" placeholder="사용자 ID" />
-        <input type="email" id="userEmail" placeholder="이메일" />
-        <button onclick="login()">로그인</button>
-    </div>
-
-    <!-- 채팅 -->
-    <div id="chatArea">
-        <div class="chatbot-header">
-            <h1>🎓 AI 영어 튜터</h1>
-            <div class="usage-info" id="usageInfo">남은 질문 횟수(간단한 질문: -, 복잡한 질문: -)</div>
-            <button class="logout-btn" onclick="logout()">로그아웃</button>
-        </div>
-        <div class="error-message" id="errorMessage"></div>
-<!-- ========== 질문 유형 선택 ========== -->
-        <div style="margin: 15px 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
-            <div style="margin-bottom: 12px; font-weight: bold; color: #495057;">
-                💡 질문 유형을 선택하세요
+        <div class="chatbot-container">
+            <!-- 로그인 -->
+            <div id="loginArea" class="login-area">
+                <h2>🎓 AI 영어 튜터</h2>
+                <p>로그인하여 시작하세요</p>
+                <input type="text" id="userId" placeholder="사용자 ID" />
+                <input type="email" id="userEmail" placeholder="이메일" />
+                <button onclick="window.chatbotLogin()">로그인</button>
             </div>
-            <div style="display: flex; gap: 10px; margin-bottom: 12px;">
-                <button id="simpleBtn" onclick="selectQuestionType('simple')" 
-                        style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
-                    간단한 질문
-                </button>
-                <button id="complexBtn" onclick="selectQuestionType('complex')" 
-                        style="flex: 1; padding: 12px; background: #e9ecef; color: #6c757d; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
-                    복잡한 질문
-                </button>
-            </div>
-            <div style="font-size: 13px; color: #6c757d; line-height: 1.6;">
-                <div id="simpleDesc" style="display: block;">
-                    ✓ 단어/문법 뜻 묻기<br>
-                    ✓ 짧은 문장 해석<br>
-                    ✓ 예: "flawlessly의 뜻은?"
+
+            <!-- 채팅 -->
+            <div id="chatArea">
+                <div class="chatbot-header">
+                    <h1>🎓 AI 영어 튜터</h1>
+                    <div class="usage-info" id="usageInfo">남은 질문 횟수(간단한 질문: -, 복잡한 질문: -)</div>
+                    <button class="logout-btn" onclick="window.chatbotLogout()">로그아웃</button>
                 </div>
-                <div id="complexDesc" style="display: none;">
-                    ✓ 문제 풀이 전체 설명<br>
-                    ✓ 긴 문단 분석 요청<br>
-                    ✓ 예: "이 문제를 자세히 설명해주세요"
+                <div class="error-message" id="errorMessage"></div>
+                
+                <!-- 질문 유형 선택 -->
+                <div style="margin: 15px 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
+                    <div style="margin-bottom: 12px; font-weight: bold; color: #495057;">
+                        💡 질문 유형을 선택하세요
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                        <button id="simpleBtn" onclick="window.selectQuestionType('simple')" 
+                                style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                            간단한 질문
+                        </button>
+                        <button id="complexBtn" onclick="window.selectQuestionType('complex')" 
+                                style="flex: 1; padding: 12px; background: #e9ecef; color: #6c757d; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                            복잡한 질문
+                        </button>
+                    </div>
+                    <div style="font-size: 13px; color: #6c757d; line-height: 1.6;">
+                        <div id="simpleDesc" style="display: block;">
+                            ✓ 단어/문법 뜻 묻기<br>
+                            ✓ 짧은 문장 해석<br>
+                            ✓ 예: "flawlessly의 뜻은?"
+                        </div>
+                        <div id="complexDesc" style="display: none;">
+                            ✓ 문제 풀이 전체 설명<br>
+                            ✓ 긴 문단 분석 요청<br>
+                            ✓ 예: "이 문제를 자세히 설명해주세요"
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 퀴즈 버튼 -->
+                <div style="margin: 0 20px 10px 20px;">
+                    <button class="quiz-toggle-btn" onclick="window.toggleQuiz()">
+                        🎯 단어 퀴즈 풀기
+                    </button>
+                </div>
+                
+                <!-- 퀴즈 영역 -->
+                <div class="quiz-area" id="quizArea">
+                    <div class="quiz-word" id="quizWord">Loading...</div>
+                    <div class="quiz-pos" id="quizPos"></div>
+                    
+                    <div id="quizChoices">
+                        <!-- 선택지가 여기에 동적으로 추가됩니다 -->
+                    </div>
+                    
+                    <div class="quiz-result" id="quizResult"></div>
+                    <button class="quiz-next-btn" id="quizNextBtn" onclick="window.loadQuiz()">다음 문제</button>
+                    <button class="quiz-close-btn" onclick="window.toggleQuiz()">퀴즈 닫기</button>
+                </div>
+                
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message bot">
+                        <div class="bubble">
+                            <div class="line">안녕하세요! 👋</div>
+                            <div class="line">수능 영어 질문을 자유롭게 해주세요.</div>
+                            <div class="line">어휘, 문법, 독해 등 무엇이든 도와드리겠습니다!</div>
+                        </div>
+                        <div class="msg-time">...</div>
+                    </div>
+                </div>
+                <div class="loading" id="loading">답변 생성 중...</div>
+                <div class="chat-input-area">
+                    <div class="input-wrapper">
+                        <input type="text" id="questionInput" placeholder="질문을 입력하세요..." onkeypress="if(event.key==='Enter')window.sendQuestion()" />
+                        <button id="sendButton" onclick="window.sendQuestion()">전송</button>
+                    </div>
                 </div>
             </div>
         </div>
-        <!-- ==================================== -->
-	<!-- ========== 퀴즈 버튼 ========== -->
-        <div style="margin: 0 20px 10px 20px;">
-            <button class="quiz-toggle-btn" onclick="toggleQuiz()">
-                🎯 단어 퀴즈 풀기
-            </button>
-        </div>
-        
-        <!-- ========== 퀴즈 영역 ========== -->
-        <div class="quiz-area" id="quizArea">
-            <div class="quiz-word" id="quizWord">Loading...</div>
-            <div class="quiz-pos" id="quizPos"></div>
-            
-            <div id="quizChoices">
-                <!-- 선택지가 여기에 동적으로 추가됩니다 -->
-            </div>
-            
-            <div class="quiz-result" id="quizResult"></div>
-            <button class="quiz-next-btn" id="quizNextBtn" onclick="loadQuiz()">다음 문제</button>
-            <button class="quiz-close-btn" onclick="toggleQuiz()">퀴즈 닫기</button>
-        </div>
-        <!-- ================================ -->
-        <div class="chat-messages" id="chatMessages">
-            <div class="message bot">
-                <div class="bubble">
-                    <div class="line">안녕하세요! 👋</div>
-                    <div class="line">수능 영어 질문을 자유롭게 해주세요.</div>
-                    <div class="line">어휘, 문법, 독해 등 무엇이든 도와드리겠습니다!</div>
-                </div>
-                <div class="msg-time">...</div>
-            </div>
-        </div>
-        <div class="loading" id="loading">답변 생성 중...</div>
-        <div class="chat-input-area">
-            <div class="input-wrapper">
-                <input type="text" id="questionInput" placeholder="질문을 입력하세요..." onkeypress="if(event.key==='Enter')sendQuestion()" />
-                <button id="sendButton" onclick="sendQuestion()">전송</button>
-            </div>
-        </div>
-    </div>
-
-</div>
-
-<script>
-var API_URL = 'https://english-exam-chatbot.onrender.com';
-var authToken = localStorage.getItem('authToken');
-
-// ========== 자동 해설 추출 함수 ==========
-function getPageContext() {
-    var allText = document.body.innerText;
+    `;
     
-    // 방법 1: "정답:" 찾기
-    var startIndex = allText.indexOf('정답:');
-    
-    // 방법 2: "[프리미엄 문제 분석]" 찾기
-    if (startIndex === -1) {
-        startIndex = allText.indexOf('[프리미엄 문제 분석]');
+    var container = document.createElement('div');
+    container.innerHTML = html;
+    document.body.appendChild(container);
+
+    // ========== JavaScript 코드 ==========
+    window.API_URL = 'https://english-exam-chatbot.onrender.com';
+    window.authToken = localStorage.getItem('authToken');
+    window.selectedQuestionType = 'simple';
+
+    // 자동 해설 추출 함수
+    window.getPageContext = function() {
+        var allText = document.body.innerText;
+        var startIndex = allText.indexOf('정답:');
+        if (startIndex === -1) {
+            startIndex = allText.indexOf('[프리미엄 문제 분석]');
+        }
+        if (startIndex !== -1) {
+            var context = allText.substring(startIndex);
+            console.log('해설 추출 완료:', context.length, '글자');
+            return context;
+        }
+        console.log('해설을 찾을 수 없습니다');
+        return '';
+    };
+
+    window.getPageId = function() {
+        return window.location.pathname || 'default-page';
+    };
+
+    // 페이지 로드 시 실행
+    if (window.authToken) {
+        window.showChatArea();
+        window.loadUsageInfo();
     }
-    
-    if (startIndex !== -1) {
-        var context = allText.substring(startIndex);
-        console.log('해설 추출 완료:', context.length, '글자');
-        return context;
-    }
-    
-    console.log('해설을 찾을 수 없습니다');
-    return '';
-}
 
-function getPageId() {
-    return window.location.pathname || 'default-page';
-}
-// ==========================================
-
-// ---- 페이지 로드 ----
-window.onload = function() {
-    // ========== 자동 해설 캐싱 준비 ==========
-    var context = getPageContext();
+    // 자동 해설 캐싱
+    var context = window.getPageContext();
     if (context) {
-        var page_id = getPageId();
+        var page_id = window.getPageId();
         console.log('페이지 로드 완료, 해설 캐싱 준비:', page_id);
         window.pendingContext = { page_id: page_id, context: context };
     }
-    // =======================================
-    
-    if (authToken) {
-        showChatArea();
-        loadUsageInfo();
-    }
-};
 
-// ---- 로그인 ----
-async function login() {
-    var userId = document.getElementById('userId').value.trim();
-    var userEmail = document.getElementById('userEmail').value.trim();
-    if (!userId || !userEmail) return showError('사용자 ID와 이메일을 모두 입력해주세요.');
+    // 로그인
+    window.chatbotLogin = async function() {
+        var userId = document.getElementById('userId').value.trim();
+        var userEmail = document.getElementById('userEmail').value.trim();
+        if (!userId || !userEmail) return window.showError('사용자 ID와 이메일을 모두 입력해주세요.');
 
-    try {
-        var res = await fetch(API_URL + '/api/auth/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: userId, userEmail: userEmail })
-        });
-        var data = await res.json();
-        if (data.token) {
-            authToken = data.token;
-            localStorage.setItem('authToken', authToken);
-// ========== 캐싱 실행 ==========
-            if (window.pendingContext) {
-                cacheContext(window.pendingContext.page_id, window.pendingContext.context);
-            }
-            // ==============================
-            showChatArea();
-            loadUsageInfo();
-        } else {
-            showError(data.message || '로그인 실패');
-        }
-    } catch(e) {
-        showError('서버 연결 실패');
-    }
-}
-
-// ---- 로그아웃 ----
-function logout() {
-    localStorage.clear();
-    authToken = null;
-    document.getElementById('chatArea').classList.remove('visible');
-    document.getElementById('loginArea').classList.remove('hidden');
-    document.getElementById('userId').value = '';
-    document.getElementById('userEmail').value = '';
-}
-
-// ---- 토큰 만료 체크 ----
-function checkAuthError(res) {
-    if (res.status === 401 || res.status === 403) {
-        logout();
-        showError('세션이 만료되었습니다. 다시 로그인해주세요.');
-        return true;
-    }
-    return false;
-}
-
-// ---- 채팅 영역 표시 ----
-function showChatArea() {
-    document.getElementById('loginArea').classList.add('hidden');
-    document.getElementById('chatArea').classList.add('visible');
-}
-// ---- 캐싱 함수 ----
-async function cacheContext(page_id, context) {
-    try {
-        var res = await fetch(API_URL + '/api/cache-context', {
-            method: 'POST',
-            headers: {
-                'Authorization': 'Bearer ' + authToken,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ page_id: page_id, context: context })
-        });
-        var data = await res.json();
-        if (data.success) {
-            console.log('캐싱 완료:', data.cached_length, '글자');
-        }
-    } catch(e) {
-        console.error('캐싱 오류:', e);
-    }
-}
-// ---- 질문 유형 선택 ----
-var selectedQuestionType = 'simple';
-
-function selectQuestionType(type) {
-    selectedQuestionType = type;
-    
-    var simpleBtn = document.getElementById('simpleBtn');
-    var complexBtn = document.getElementById('complexBtn');
-    var simpleDesc = document.getElementById('simpleDesc');
-    var complexDesc = document.getElementById('complexDesc');
-    
-    if (type === 'simple') {
-        simpleBtn.style.background = '#28a745';
-        simpleBtn.style.color = 'white';
-        complexBtn.style.background = '#e9ecef';
-        complexBtn.style.color = '#6c757d';
-        simpleDesc.style.display = 'block';
-        complexDesc.style.display = 'none';
-    } else {
-        simpleBtn.style.background = '#e9ecef';
-        simpleBtn.style.color = '#6c757d';
-        complexBtn.style.background = '#007bff';
-        complexBtn.style.color = 'white';
-        simpleDesc.style.display = 'none';
-        complexDesc.style.display = 'block';
-    }
-}
-// ---- 사용량 로드 ----
-async function loadUsageInfo() {
-    try {
-        var res = await fetch(API_URL + '/api/usage', {
-            headers: { 'Authorization': 'Bearer ' + authToken }
-        });
-        if (checkAuthError(res)) return;
-        var data = await res.json();
-        if (data['성공']) {
-            document.getElementById('usageInfo').textContent =
-                '남은 질문 횟수(간단한 질문: ' + data['이번달']['간단한질문']['남음'] +
-                ', 복잡한 질문: ' + data['이번달']['복잡한질문']['남음'] + ')';
-        }
-    } catch(e) { console.error(e); }
-}
-
-// ---- 질문 전송 ----
-async function sendQuestion() {
-    var input = document.getElementById('questionInput');
-    var question = input.value.trim();
-    if (!question) return;
-
-    addMessage(question, 'user');
-    input.value = '';
-    document.getElementById('sendButton').disabled = true;
-    document.getElementById('loading').classList.add('active');
-
-    try {
-        var res = await fetch(API_URL + '/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
-            body: JSON.stringify({ 
-    		   question: question, 
-    		   questionType: selectedQuestionType,
-    		   page_id: getPageId()
-})
-        });
-        if (checkAuthError(res)) return;
-        var data = await res.json();
-        if (data.answer) {
-            addMessage(data.answer, 'bot');
-            loadUsageInfo();
-        } else {
-            showError(data.message || '답변을 받지 못했습니다.');
-        }
-    } catch(e) {
-        showError('서버 연결 실패');
-    } finally {
-        document.getElementById('sendButton').disabled = false;
-        document.getElementById('loading').classList.remove('active');
-    }
-}
-
-// ===== Markdown → HTML 변환 =====
-function formatMessage(rawText) {
-    // 1. HTML 이스케이프
-    var text = rawText
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-
-    // 2. 줄바꿈 정리
-    text = text.replace(/\n{3,}/g, '\n\n');
-
-    // 3. ## 헤더 → bold
-    text = text.replace(/#{1,6}\s+(.*)/g, '**$1**');
-
-    // 4. 인라인 변환
-    text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    text = text.replace(/(?<!\w)\*([^*\n]+?)\*(?!\w)/g, '<em>$1</em>');
-    text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
-
-    // 5. 줄 단위 처리
-    var lines = text.split('\n');
-    var html = '';
-
-    for (var i = 0; i < lines.length; i++) {
-        var line = lines[i].trim(); // trim 으로 모든 앞뒤 공백 제거 → 좌측 정렬 통일
-
-        // 빈 줄
-        if (line === '') { html += '<div class="gap"></div>'; continue; }
-
-        // 구분선
-        if (/^[-_*]{3,}$/.test(line)) { html += '<div class="divider"></div>'; continue; }
-
-        // 번호 리스트
-        var numM = line.match(/^(\d+)[.)]\s+([\s\S]*)/);
-        if (numM) {
-            html += '<div class="line">📌 <strong>' + numM[1] + '.</strong> ' + numM[2] + '</div>';
-            continue;
-        }
-
-        // 불릿 리스트
-        var bulM = line.match(/^[-•]\s+([\s\S]*)/);
-        if (bulM) {
-            html += '<div class="line">• ' + bulM[1] + '</div>';
-            continue;
-        }
-
-        // 제목만 있는 줄 감지: <strong>...</strong>
-        var titM = line.match(/^(<strong>[^<]+<\/strong>)\s*:?\s*$/);
-        if (titM) {
-            var ni = i + 1;
-            while (ni < lines.length && lines[ni].trim() === '') ni++;
-
-            if (ni < lines.length) {
-                var nextLine = lines[ni].trim();
-                var nextIsList = /^[-•]\s/.test(nextLine) || /^\d+[.)]\s/.test(nextLine);
-                var nextIsTitle = /^<strong>/.test(nextLine);
-
-                // 다음이 리스트/제목이 아니면 합침
-                if (!nextIsList && !nextIsTitle && !/^[-_*]{3,}$/.test(nextLine)) {
-                    html += '<div class="line">' + titM[1] + ': ' + nextLine + '</div>';
-                    i = ni;
-                    continue;
+        try {
+            var res = await fetch(window.API_URL + '/api/auth/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: userId, userEmail: userEmail })
+            });
+            var data = await res.json();
+            if (data.token) {
+                window.authToken = data.token;
+                localStorage.setItem('authToken', window.authToken);
+                if (window.pendingContext) {
+                    window.cacheContext(window.pendingContext.page_id, window.pendingContext.context);
                 }
+                window.showChatArea();
+                window.loadUsageInfo();
+            } else {
+                window.showError(data.message || '로그인 실패');
             }
-            // 다음이 리스트이면 제목 단독
-            html += '<div class="gap"></div>';
-            html += '<div class="line">' + titM[1] + '</div>';
-            continue;
+        } catch(e) {
+            window.showError('서버 연결 실패');
+        }
+    };
+
+    // 로그아웃
+    window.chatbotLogout = function() {
+        localStorage.clear();
+        window.authToken = null;
+        document.getElementById('chatArea').classList.remove('visible');
+        document.getElementById('loginArea').classList.remove('hidden');
+        document.getElementById('userId').value = '';
+        document.getElementById('userEmail').value = '';
+    };
+
+    // 토큰 만료 체크
+    window.checkAuthError = function(res) {
+        if (res.status === 401 || res.status === 403) {
+            window.chatbotLogout();
+            window.showError('세션이 만료되었습니다. 다시 로그인해주세요.');
+            return true;
+        }
+        return false;
+    };
+
+    // 채팅 영역 표시
+    window.showChatArea = function() {
+        document.getElementById('loginArea').classList.add('hidden');
+        document.getElementById('chatArea').classList.add('visible');
+    };
+
+    // 캐싱 함수
+    window.cacheContext = async function(page_id, context) {
+        try {
+            var res = await fetch(window.API_URL + '/api/cache-context', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + window.authToken,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ page_id: page_id, context: context })
+            });
+            var data = await res.json();
+            if (data.success) {
+                console.log('캐싱 완료:', data.cached_length, '글자');
+            }
+        } catch(e) {
+            console.error('캐싱 오류:', e);
+        }
+    };
+
+    // 질문 유형 선택
+    window.selectQuestionType = function(type) {
+        window.selectedQuestionType = type;
+        
+        var simpleBtn = document.getElementById('simpleBtn');
+        var complexBtn = document.getElementById('complexBtn');
+        var simpleDesc = document.getElementById('simpleDesc');
+        var complexDesc = document.getElementById('complexDesc');
+        
+        if (type === 'simple') {
+            simpleBtn.style.background = '#28a745';
+            simpleBtn.style.color = 'white';
+            complexBtn.style.background = '#e9ecef';
+            complexBtn.style.color = '#6c757d';
+            simpleDesc.style.display = 'block';
+            complexDesc.style.display = 'none';
+        } else {
+            simpleBtn.style.background = '#e9ecef';
+            simpleBtn.style.color = '#6c757d';
+            complexBtn.style.background = '#007bff';
+            complexBtn.style.color = 'white';
+            simpleDesc.style.display = 'none';
+            complexDesc.style.display = 'block';
+        }
+    };
+
+    // 사용량 로드
+    window.loadUsageInfo = async function() {
+        try {
+            var res = await fetch(window.API_URL + '/api/usage', {
+                headers: { 'Authorization': 'Bearer ' + window.authToken }
+            });
+            if (window.checkAuthError(res)) return;
+            var data = await res.json();
+            if (data['성공']) {
+                document.getElementById('usageInfo').textContent =
+                    '남은 질문 횟수(간단한 질문: ' + data['이번달']['간단한질문']['남음'] +
+                    ', 복잡한 질문: ' + data['이번달']['복잡한질문']['남음'] + ')';
+            }
+        } catch(e) { console.error(e); }
+    };
+
+    // 질문 전송
+    window.sendQuestion = async function() {
+        var input = document.getElementById('questionInput');
+        var question = input.value.trim();
+        if (!question) return;
+
+        window.addMessage(question, 'user');
+        input.value = '';
+        document.getElementById('sendButton').disabled = true;
+        document.getElementById('loading').classList.add('active');
+
+        try {
+            var res = await fetch(window.API_URL + '/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + window.authToken },
+                body: JSON.stringify({ 
+                    question: question, 
+                    questionType: window.selectedQuestionType,
+                    page_id: window.getPageId()
+                })
+            });
+            if (window.checkAuthError(res)) return;
+            var data = await res.json();
+            if (data.answer) {
+                window.addMessage(data.answer, 'bot');
+                window.loadUsageInfo();
+            } else {
+                window.showError(data.message || '답변을 받지 못했습니다.');
+            }
+        } catch(e) {
+            window.showError('서버 연결 실패');
+        } finally {
+            document.getElementById('sendButton').disabled = false;
+            document.getElementById('loading').classList.remove('active');
+        }
+    };
+
+    // Markdown → HTML 변환
+    window.formatMessage = function(rawText) {
+        var text = rawText
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+        text = text.replace(/\n{3,}/g, '\n\n');
+        text = text.replace(/#{1,6}\s+(.*)/g, '**$1**');
+        text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        text = text.replace(/(?<!\w)\*([^*\n]+?)\*(?!\w)/g, '<em>$1</em>');
+        text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+        var lines = text.split('\n');
+        var html = '';
+
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim();
+
+            if (line === '') { html += '<div class="gap"></div>'; continue; }
+            if (/^[-_*]{3,}$/.test(line)) { html += '<div class="divider"></div>'; continue; }
+
+            var numM = line.match(/^(\d+)[.)]\s+([\s\S]*)/);
+            if (numM) {
+                html += '<div class="line">📌 <strong>' + numM[1] + '.</strong> ' + numM[2] + '</div>';
+                continue;
+            }
+
+            var bulM = line.match(/^[-•]\s+([\s\S]*)/);
+            if (bulM) {
+                html += '<div class="line">• ' + bulM[1] + '</div>';
+                continue;
+            }
+
+            var titM = line.match(/^(<strong>[^<]+<\/strong>)\s*:?\s*$/);
+            if (titM) {
+                var ni = i + 1;
+                while (ni < lines.length && lines[ni].trim() === '') ni++;
+
+                if (ni < lines.length) {
+                    var nextLine = lines[ni].trim();
+                    var nextIsList = /^[-•]\s/.test(nextLine) || /^\d+[.)]\s/.test(nextLine);
+                    var nextIsTitle = /^<strong>/.test(nextLine);
+
+                    if (!nextIsList && !nextIsTitle && !/^[-_*]{3,}$/.test(nextLine)) {
+                        html += '<div class="line">' + titM[1] + ': ' + nextLine + '</div>';
+                        i = ni;
+                        continue;
+                    }
+                }
+                html += '<div class="gap"></div>';
+                html += '<div class="line">' + titM[1] + '</div>';
+                continue;
+            }
+
+            html += '<div class="line">' + line + '</div>';
         }
 
-        // 일반 텍스트
-        html += '<div class="line">' + line + '</div>';
-    }
+        return html;
+    };
 
-    return html;
-}
+    // 메시지 추가
+    window.addMessage = function(text, sender) {
+        var container = document.getElementById('chatMessages');
 
-// ---- 메시지 추가 ----
-function addMessage(text, sender) {
-    var container = document.getElementById('chatMessages');
+        var msgDiv = document.createElement('div');
+        msgDiv.className = 'message ' + sender;
 
-    var msgDiv = document.createElement('div');
-    msgDiv.className = 'message ' + sender;
+        var bubble = document.createElement('div');
+        bubble.className = 'bubble';
 
-    var bubble = document.createElement('div');
-    bubble.className = 'bubble';
+        if (sender === 'bot') {
+            bubble.innerHTML = window.formatMessage(text);
+        } else {
+            bubble.textContent = text;
+        }
 
-    if (sender === 'bot') {
-        bubble.innerHTML = formatMessage(text);
-    } else {
-        bubble.textContent = text;
-    }
+        var timeDiv = document.createElement('div');
+        timeDiv.className = 'msg-time';
+        timeDiv.textContent = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 
-    var timeDiv = document.createElement('div');
-    timeDiv.className = 'msg-time';
-    timeDiv.textContent = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+        msgDiv.appendChild(bubble);
+        msgDiv.appendChild(timeDiv);
+        container.appendChild(msgDiv);
+        container.scrollTop = container.scrollHeight;
+    };
 
-    msgDiv.appendChild(bubble);
-    msgDiv.appendChild(timeDiv);
-    container.appendChild(msgDiv);
-    container.scrollTop = container.scrollHeight;
-}
+    // 에러 표시
+    window.showError = function(msg) {
+        var el = document.getElementById('errorMessage');
+        el.textContent = msg;
+        el.classList.add('active');
+        setTimeout(function() { el.classList.remove('active'); }, 5000);
+    };
 
-// ---- 에러 표시 ----
-function showError(msg) {
-    var el = document.getElementById('errorMessage');
-    el.textContent = msg;
-    el.classList.add('active');
-    setTimeout(function() { el.classList.remove('active'); }, 5000);
-}
+    // 챗봇 토글
+    window.toggleChatbot = function() {
+        var container = document.querySelector('.chatbot-container');
+        container.classList.toggle('open');
+    };
 
-// ---- 챗봇 토글 ----
-function toggleChatbot() {
-    var container = document.querySelector('.chatbot-container');
-    container.classList.toggle('open');
-}
-// ========== 퀴즈 기능 ==========
-function toggleQuiz() {
-    var quizArea = document.getElementById('quizArea');
-    var isActive = quizArea.classList.contains('active');
-    
-    if (isActive) {
-        quizArea.classList.remove('active');
-    } else {
-        quizArea.classList.add('active');
-        loadQuiz();
-    }
-}
-
-async function loadQuiz() {
-    if (!authToken) {
-        showError('로그인이 필요합니다');
-        return;
-    }
-    
-    try {
-        // 이전 결과 초기화
-        document.getElementById('quizResult').className = 'quiz-result';
-        document.getElementById('quizNextBtn').className = 'quiz-next-btn';
+    // 퀴즈 기능
+    window.toggleQuiz = function() {
+        var quizArea = document.getElementById('quizArea');
+        var isActive = quizArea.classList.contains('active');
         
-        // API 호출
-        var res = await fetch(API_URL + '/api/quiz/random', {
-            headers: { 'Authorization': 'Bearer ' + authToken }
+        if (isActive) {
+            quizArea.classList.remove('active');
+        } else {
+            quizArea.classList.add('active');
+            window.loadQuiz();
+        }
+    };
+
+    window.loadQuiz = async function() {
+        if (!window.authToken) {
+            window.showError('로그인이 필요합니다');
+            return;
+        }
+        
+        try {
+            document.getElementById('quizResult').className = 'quiz-result';
+            document.getElementById('quizNextBtn').className = 'quiz-next-btn';
+            
+            var res = await fetch(window.API_URL + '/api/quiz/random', {
+                headers: { 'Authorization': 'Bearer ' + window.authToken }
+            });
+            
+            if (window.checkAuthError(res)) return;
+            
+            var data = await res.json();
+            
+            if (data.success && data.quiz) {
+                window.displayQuiz(data.quiz);
+            } else {
+                window.showError(data.message || '퀴즈를 불러올 수 없습니다');
+            }
+        } catch(e) {
+            console.error('퀴즈 로드 오류:', e);
+            window.showError('퀴즈 로드 실패');
+        }
+    };
+
+    window.displayQuiz = function(quiz) {
+        document.getElementById('quizWord').textContent = quiz.word;
+        document.getElementById('quizPos').textContent = quiz.part_of_speech ? '(' + quiz.part_of_speech + ')' : '';
+        
+        var choicesContainer = document.getElementById('quizChoices');
+        choicesContainer.innerHTML = '';
+        
+        quiz.choices.forEach(function(choice, index) {
+            var choiceDiv = document.createElement('div');
+            choiceDiv.className = 'quiz-choice';
+            choiceDiv.textContent = (index + 1) + '. ' + choice;
+            choiceDiv.onclick = function() {
+                window.selectAnswer(index, quiz.correct_index, quiz.choices);
+            };
+            choicesContainer.appendChild(choiceDiv);
         });
         
-        if (checkAuthError(res)) return;
-        
-        var data = await res.json();
-        
-        if (data.success && data.quiz) {
-            displayQuiz(data.quiz);
-        } else {
-            showError(data.message || '퀴즈를 불러올 수 없습니다');
-        }
-    } catch(e) {
-        console.error('퀴즈 로드 오류:', e);
-        showError('퀴즈 로드 실패');
-    }
-}
+        window.currentQuizAnswer = quiz.correct_index;
+    };
 
-function displayQuiz(quiz) {
-    // 단어 표시
-    document.getElementById('quizWord').textContent = quiz.word;
-    document.getElementById('quizPos').textContent = quiz.part_of_speech ? '(' + quiz.part_of_speech + ')' : '';
-    
-    // 선택지 생성
-    var choicesContainer = document.getElementById('quizChoices');
-    choicesContainer.innerHTML = '';
-    
-    quiz.choices.forEach(function(choice, index) {
-        var choiceDiv = document.createElement('div');
-        choiceDiv.className = 'quiz-choice';
-        choiceDiv.textContent = (index + 1) + '. ' + choice;
-        choiceDiv.onclick = function() {
-            selectAnswer(index, quiz.correct_index, quiz.choices);
-        };
-        choicesContainer.appendChild(choiceDiv);
-    });
-    
-    // 정답 인덱스 저장
-    window.currentQuizAnswer = quiz.correct_index;
-}
+    window.selectAnswer = function(selectedIndex, correctIndex, choices) {
+        var allChoices = document.querySelectorAll('.quiz-choice');
+        allChoices.forEach(function(choice) {
+            choice.classList.add('disabled');
+            choice.onclick = null;
+        });
+        
+        var isCorrect = selectedIndex === correctIndex;
+        
+        allChoices[selectedIndex].classList.add(isCorrect ? 'correct' : 'wrong');
+        allChoices[correctIndex].classList.add('correct');
+        
+        var resultDiv = document.getElementById('quizResult');
+        resultDiv.className = 'quiz-result show ' + (isCorrect ? 'correct' : 'wrong');
+        resultDiv.textContent = isCorrect ? '🎉 정답입니다!' : '❌ 틀렸습니다! 정답: ' + choices[correctIndex];
+        
+        document.getElementById('quizNextBtn').classList.add('show');
+    };
 
-function selectAnswer(selectedIndex, correctIndex, choices) {
-    // 모든 선택지 비활성화
-    var allChoices = document.querySelectorAll('.quiz-choice');
-    allChoices.forEach(function(choice) {
-        choice.classList.add('disabled');
-        choice.onclick = null;
-    });
-    
-    // 정답/오답 표시
-    var isCorrect = selectedIndex === correctIndex;
-    
-    allChoices[selectedIndex].classList.add(isCorrect ? 'correct' : 'wrong');
-    allChoices[correctIndex].classList.add('correct');
-    
-    // 결과 메시지
-    var resultDiv = document.getElementById('quizResult');
-    resultDiv.className = 'quiz-result show ' + (isCorrect ? 'correct' : 'wrong');
-    resultDiv.textContent = isCorrect ? '🎉 정답입니다!' : '❌ 틀렸습니다! 정답: ' + choices[correctIndex];
-    
-    // 다음 문제 버튼 표시
-    document.getElementById('quizNextBtn').classList.add('show');
-}
-// ==============================
-</script>
-</body>
-</html>
+})();
