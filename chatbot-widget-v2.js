@@ -220,10 +220,32 @@
         .message.user .msg-time { text-align: right; }
 
         /* ===== 로딩 / 에러 ===== */
-        .loading { display: none; padding: 8px; text-align: center; color: #667eea; flex-shrink: 0; }
+        .loading { display: none; padding: 12px 16px; text-align: center; color: #667eea; font-size: 14px; font-weight: 600; background: #f0f3ff; flex-shrink: 0; border-top: 1px solid #e0e0e0; }
         .loading.active { display: block; }
+        .loading-dots::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
         .error-message { background: #fee; color: #c33; padding: 10px 16px; border-radius: 6px; margin: 6px 16px; display: none; flex-shrink: 0; }
         .error-message.active { display: block; }
+
+        /* 질문 유형 박스 슬라이드 */
+        #questionTypeBox {
+            transition: all 0.3s ease;
+            max-height: 200px;
+            overflow: hidden;
+        }
+        #questionTypeBox.collapsed {
+            max-height: 0;
+            margin: 0 !important;
+            padding: 0 !important;
+            opacity: 0;
+        }
 
         /* ===== 입력 영역 (고정) ===== */
         .chat-input-area { padding: 12px 16px; background: white; border-top: 1px solid #e0e0e0; flex-shrink: 0; }
@@ -446,7 +468,7 @@
                     </div>
                 </div>
                 
-                <div id="quizToggleContainer" style="margin: 0 20px 10px 20px;">
+                <div id="quizToggleContainer" style="margin: 0 20px 10px 20px; display: none;">
                     <button class="quiz-toggle-btn" onclick="window.toggleQuiz()">
                         🎯 단어 퀴즈 풀기
                     </button>
@@ -502,7 +524,7 @@
                         <div class="msg-time">...</div>
                     </div>
                 </div>
-                <div class="loading" id="loading">답변 생성 중...</div>
+                <div class="loading" id="loading">💬 답변 생성 중<span class="loading-dots"></span></div>
                 <div class="chat-input-area">
                     <div class="input-wrapper">
                         <input type="text" id="questionInput" placeholder="질문을 입력하세요..." onkeypress="if(event.key==='Enter')window.sendQuestion()" />
@@ -810,12 +832,23 @@
         var question = input.value.trim();
         if (!question) return;
 
+        // 질문 유형 박스 접기
+        var typeBox = document.getElementById('questionTypeBox');
+        if (typeBox) typeBox.classList.add('collapsed');
+
         window.addMessage(question, 'user');
         input.value = '';
         document.getElementById('sendButton').disabled = true;
-        document.getElementById('loading').classList.add('active');
+        
+        var loadingEl = document.getElementById('loading');
+        if (loadingEl) {
+            loadingEl.style.display = 'block';
+            loadingEl.classList.add('active');
+        }
 
         try {
+            var pageContext = window.getPageContext();
+            
             var res = await fetch(window.API_URL + '/api/chat', {
                 method: 'POST',
                 headers: { 
@@ -825,8 +858,10 @@
                 body: JSON.stringify({ 
                     question: question, 
                     questionType: window.selectedQuestionType,
-                    page_id: window.getPageId()
-                })
+                    page_id: window.getPageId(),
+                    page_context: pageContext
+                }),
+                credentials: 'omit'
             });
             
             if (window.checkAuthError(res)) return;
@@ -842,7 +877,10 @@
             window.showError('서버 연결 실패');
         } finally {
             document.getElementById('sendButton').disabled = false;
-            document.getElementById('loading').classList.remove('active');
+            if (loadingEl) {
+                loadingEl.style.display = 'none';
+                loadingEl.classList.remove('active');
+            }
         }
     };
 
@@ -1101,8 +1139,9 @@
             if (chatMessages) chatMessages.style.display = 'block';
             if (chatBtn) chatBtn.style.background = 'rgba(255,255,255,0.3)';
             if (chatInputArea) chatInputArea.style.display = 'block';
-            if (questionTypeBox) questionTypeBox.style.display = 'block';
-            if (quizToggleContainer) quizToggleContainer.style.display = 'block';
+            if (questionTypeBox) { questionTypeBox.style.display = 'block'; questionTypeBox.classList.remove('collapsed'); }
+            // 단어 퀴즈 풀기 버튼은 질문하기 탭에서 숨김
+            if (quizToggleContainer) quizToggleContainer.style.display = 'none';
             if (quizAreaOld && quizAreaOld.classList.contains('active')) quizAreaOld.style.display = 'block';
         } else if (tab === 'vocabulary') {
             if (vocabArea) vocabArea.style.display = 'block';
@@ -1441,6 +1480,37 @@
             }
         }
     }, 200);
+
+    // ========== 입력창 포커스 시 질문 유형 박스 슬라이드업 ==========
+    setTimeout(function() {
+        var input = document.getElementById('questionInput');
+        var typeBox = document.getElementById('questionTypeBox');
+        var chatMessages = document.getElementById('chatMessages');
+
+        if (input && typeBox) {
+            input.addEventListener('focus', function() {
+                typeBox.classList.add('collapsed');
+            });
+            input.addEventListener('blur', function() {
+                setTimeout(function() {
+                    // 메시지가 없을 때만 다시 보여줌
+                    var msgs = chatMessages ? chatMessages.querySelectorAll('.message') : [];
+                    if (msgs.length <= 1) {
+                        typeBox.classList.remove('collapsed');
+                    }
+                }, 300);
+            });
+        }
+
+        // 채팅 영역 클릭 시에도 접기
+        if (chatMessages && typeBox) {
+            chatMessages.addEventListener('click', function() {
+                if (!typeBox.classList.contains('collapsed')) {
+                    typeBox.classList.add('collapsed');
+                }
+            });
+        }
+    }, 1000);
 
     // ========== 퀴즈 토글 ==========
     window.toggleQuiz = function() {
