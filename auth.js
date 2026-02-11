@@ -9,7 +9,7 @@ require('dotenv').config();
 const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_EXPIRY = '24h';  // 1시간
+const JWT_EXPIRY = '30d';  // 30일
 
 if (!JWT_SECRET || JWT_SECRET === 'change-this-to-random-secret-key-min-32-chars') {
   console.error('⚠️ WARNING: JWT_SECRET not properly set in .env file!');
