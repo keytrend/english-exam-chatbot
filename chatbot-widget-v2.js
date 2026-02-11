@@ -219,9 +219,17 @@
         .msg-time { font-size: 11px; color: #999; margin-top: 3px; }
         .message.user .msg-time { text-align: right; }
 
-        /* ===== 로딩 / 에러 ===== */
-        .loading { display: none; padding: 12px 16px; text-align: center; color: #667eea; font-size: 14px; font-weight: 600; background: #f0f3ff; flex-shrink: 0; border-top: 1px solid #e0e0e0; }
-        .loading.active { display: block; }
+        /* ===== 로딩 애니메이션 ===== */
+        .loading-bear {
+            display: inline-block;
+            animation: bear-dance 0.6s ease-in-out infinite alternate;
+            font-size: 18px;
+            margin-right: 6px;
+        }
+        @keyframes bear-dance {
+            0% { transform: translateY(0) rotate(-5deg); }
+            100% { transform: translateY(-4px) rotate(5deg); }
+        }
         .loading-dots::after {
             content: '...';
             animation: dots 1.5s steps(4, end) infinite;
@@ -231,6 +239,34 @@
             40% { content: '..'; }
             60%, 100% { content: '...'; }
         }
+
+        /* ===== 발음 버튼 ===== */
+        .speak-btn {
+            padding: 4px 8px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            vertical-align: middle;
+        }
+        .speak-btn:hover { background: #5568d3; }
+
+        /* ===== 단어장 저장 버튼 ===== */
+        .save-vocab-btn {
+            padding: 6px 12px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        .save-vocab-btn:hover { background: #218838; }
         .error-message { background: #fee; color: #c33; padding: 10px 16px; border-radius: 6px; margin: 6px 16px; display: none; flex-shrink: 0; }
         .error-message.active { display: block; }
 
@@ -418,7 +454,7 @@
             <div id="chatArea">
                 <div class="chatbot-header">
                     <h1>🎓 Key Trend</h1>
-                    <div class="usage-info" id="usageInfo">남은 질문 횟수(간단한 질문: -, 복잡한 질문: -)</div>
+                    <div class="usage-info" id="usageInfo">남은 질문 횟수(단어 뜻: -, 복잡한 질문: -)</div>
                     <button onclick="window.toggleChatbot()" style="position: absolute; top: 14px; left: 16px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); padding: 4px 10px; border-radius: 12px; font-size: 12px; cursor: pointer;">✕ 닫기</button>
                     <button class="logout-btn" onclick="window.chatbotLogout()">로그아웃</button>
                     
@@ -447,7 +483,7 @@
                     <div style="display: flex; gap: 10px; margin-bottom: 12px;">
                         <button id="simpleBtn" onclick="window.selectQuestionType('simple')" 
                                 style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
-                            간단한 질문
+                            단어 뜻 질문
                         </button>
                         <button id="complexBtn" onclick="window.selectQuestionType('complex')" 
                                 style="flex: 1; padding: 12px; background: #e9ecef; color: #6c757d; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
@@ -456,13 +492,13 @@
                     </div>
                     <div style="font-size: 13px; color: #6c757d; line-height: 1.6;">
                         <div id="simpleDesc" style="display: block;">
-                            ✓ 단어/문법 뜻 묻기<br>
-                            ✓ 짧은 문장 해석<br>
-                            ✓ 예: "flawlessly의 뜻은?"
+                            ✓ 영어 단어의 뜻만 빠르게 확인<br>
+                            ✓ 예: "predictive?" "unprecedented?"<br>
+                            ✓ 비용 절약 모드 (Haiku 4.5)
                         </div>
                         <div id="complexDesc" style="display: none;">
+                            ✓ 문법/구문/지문 해석 등 상세 설명<br>
                             ✓ 문제 풀이 전체 설명<br>
-                            ✓ 긴 문단 분석 요청<br>
                             ✓ 예: "이 문제를 자세히 설명해주세요"
                         </div>
                     </div>
@@ -524,7 +560,6 @@
                         <div class="msg-time">...</div>
                     </div>
                 </div>
-                <div class="loading" id="loading">💬 답변 생성 중<span class="loading-dots"></span></div>
                 <div class="chat-input-area">
                     <div class="input-wrapper">
                         <input type="text" id="questionInput" placeholder="질문을 입력하세요..." onkeypress="if(event.key==='Enter')window.sendQuestion()" />
@@ -818,7 +853,7 @@
             var data = await res.json();
             if (data['성공']) {
                 document.getElementById('usageInfo').textContent =
-                    '남은 질문 횟수(간단한 질문: ' + data['이번달']['간단한질문']['남음'] +
+                    '남은 질문 횟수(단어 뜻: ' + data['이번달']['간단한질문']['남음'] +
                     ', 복잡한 질문: ' + data['이번달']['복잡한질문']['남음'] + ')';
             }
         } catch(e) { 
@@ -840,14 +875,18 @@
         input.value = '';
         document.getElementById('sendButton').disabled = true;
         
-        var loadingEl = document.getElementById('loading');
-        if (loadingEl) {
-            loadingEl.style.display = 'block';
-            loadingEl.classList.add('active');
-        }
+        // ===== 로딩 메시지를 채팅 영역 안에 추가 =====
+        var chatContainer = document.getElementById('chatMessages');
+        var loadingMsg = document.createElement('div');
+        loadingMsg.className = 'message bot';
+        loadingMsg.id = 'loading-message';
+        loadingMsg.innerHTML = '<div class="bubble" style="display: flex; align-items: center; gap: 8px; padding: 14px 18px;"><span class="loading-bear">🐻</span><span style="color: #667eea; font-weight: 600;">답변 생성 중<span class="loading-dots"></span></span></div>';
+        chatContainer.appendChild(loadingMsg);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
 
         try {
             var pageContext = window.getPageContext();
+            var currentType = window.selectedQuestionType;
             
             var res = await fetch(window.API_URL + '/api/chat', {
                 method: 'POST',
@@ -857,7 +896,7 @@
                 },
                 body: JSON.stringify({ 
                     question: question, 
-                    questionType: window.selectedQuestionType,
+                    questionType: currentType,
                     page_id: window.getPageId(),
                     page_context: pageContext
                 }),
@@ -868,7 +907,8 @@
             
             var data = await res.json();
             if (data.answer) {
-                window.addMessage(data.answer, 'bot');
+                var responseType = (data.metadata && data.metadata.questionType) || currentType;
+                window.addMessage(data.answer, 'bot', responseType);
                 window.loadUsageInfo();
             } else {
                 window.showError(data.message || '답변을 받지 못했습니다.');
@@ -877,15 +917,25 @@
             window.showError('서버 연결 실패');
         } finally {
             document.getElementById('sendButton').disabled = false;
-            if (loadingEl) {
-                loadingEl.style.display = 'none';
-                loadingEl.classList.remove('active');
-            }
+            // 로딩 메시지 제거
+            var lm = document.getElementById('loading-message');
+            if (lm) lm.remove();
         }
     };
 
     // ========== Markdown → HTML 변환 ==========
     window.formatMessage = function(rawText) {
+        // ===== 단어 정보 응답 감지 =====
+        var isVocabResponse = false;
+        if (rawText.includes('━━━━') && rawText.includes('📘') && rawText.includes('단어 정보')) {
+            isVocabResponse = true;
+        }
+
+        if (isVocabResponse) {
+            return window.formatVocabResponse(rawText);
+        }
+
+        // ===== 일반 응답 처리 =====
         var text = rawText
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
@@ -908,7 +958,7 @@
                 continue; 
             }
             
-            if (/^[-_*]{3,}$/.test(line)) { 
+            if (/^[-_*]{3,}$/.test(line) || /^━+$/.test(line)) { 
                 html += '<div class="divider"></div>'; 
                 continue; 
             }
@@ -952,8 +1002,68 @@
         return html;
     };
 
+    // ========== 단어 정보 응답 포맷 ==========
+    window.formatVocabResponse = function(rawText) {
+        var html = '';
+        var workText = rawText;
+
+        // 헤더 제거
+        workText = workText.replace(/━+\s*📘\s*단어\s*정보\s*━+/g, '').trim();
+
+        // 영단어 추출 (첫 줄에서)
+        var lines = workText.split('\n');
+        var wordLine = '';
+        for (var i = 0; i < lines.length; i++) {
+            if (lines[i].trim()) { wordLine = lines[i].trim(); break; }
+        }
+
+        var cleanWordLine = wordLine.replace(/[📘💡📖🔄⚡🎓📝🔗🧠━]/g, '').replace(/\*\*/g, '').trim();
+        var wordMatch = cleanWordLine.match(/^([a-zA-Z\-]+)/);
+        var wordOnly = wordMatch ? wordMatch[1] : '';
+        var meaningPart = cleanWordLine.replace(wordOnly, '').trim().replace(/^[,\s]+/, '');
+
+        // 단어 + 발음 버튼 + 뜻 + 저장 버튼 (한 줄)
+        html += '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">';
+        html += '<span style="font-size: 18px; font-weight: bold; color: #667eea;">' + wordOnly + '</span>';
+        if (wordOnly) {
+            html += '<button class="speak-btn" onclick="window.speakWord(\'' + wordOnly.replace(/'/g, "\\'") + '\')">🔊</button>';
+        }
+        html += '<span style="font-size: 15px; color: #333;">' + meaningPart + '</span>';
+        html += '<button class="save-vocab-btn" data-word="' + wordOnly + '" data-meaning="' + meaningPart.replace(/"/g, '&quot;') + '">📚 단어장에 추가</button>';
+        html += '</div>';
+
+        // 나머지 섹션 (어원, 관련 단어, 암기법, 동의어, 반의어, 예문)
+        var sectionRegex = /(💡\s*어원\s*:|🔗\s*어원\s*관련\s*단어\s*:|🧠\s*암기법\s*:|🔄\s*동의어\s*:|⚡\s*반의어\s*:|📝\s*예문\s*:)/g;
+        var remaining = lines.slice(1).join('\n');
+        var sections = remaining.split(sectionRegex);
+
+        for (var j = 0; j < sections.length; j++) {
+            var section = sections[j].trim();
+            if (!section) continue;
+
+            if (/^(💡|🔗|🧠|🔄|⚡|📝)/.test(section)) {
+                html += '<div style="font-weight: bold; color: #667eea; margin-top: 12px; margin-bottom: 4px;">' + section + '</div>';
+            } else {
+                var sLines = section.split('\n');
+                for (var k = 0; k < sLines.length; k++) {
+                    var sLine = sLines[k].trim();
+                    if (sLine && !/^━+$/.test(sLine)) {
+                        html += '<div style="line-height: 1.7; margin-left: 8px; color: #333;">' + sLine + '</div>';
+                    }
+                }
+            }
+        }
+
+        // 하단 저장 버튼
+        html += '<div style="margin-top: 16px; text-align: center;">';
+        html += '<button class="save-vocab-btn" data-word="' + wordOnly + '" data-meaning="' + meaningPart.replace(/"/g, '&quot;') + '" style="padding: 10px 20px; font-size: 14px;">📚 단어장에 추가</button>';
+        html += '</div>';
+
+        return html;
+    };
+
     // ========== 메시지 추가 ==========
-    window.addMessage = function(text, sender) {
+    window.addMessage = function(text, sender, questionType) {
         var container = document.getElementById('chatMessages');
 
         var msgDiv = document.createElement('div');
@@ -963,7 +1073,27 @@
         bubble.className = 'bubble';
 
         if (sender === 'bot') {
-            bubble.innerHTML = window.formatMessage(text);
+            if (questionType === 'simple') {
+                // ===== 단어 뜻 질문: 미니멀 포맷 =====
+                bubble.innerHTML = window.formatSimpleWord(text);
+            } else {
+                // ===== 복잡한 질문: 기존 Markdown 포맷 =====
+                bubble.innerHTML = window.formatMessage(text);
+            }
+            
+            // 단어장 저장 버튼 이벤트 연결
+            var saveBtns = bubble.querySelectorAll('.save-vocab-btn');
+            saveBtns.forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var word = this.getAttribute('data-word');
+                    var meaning = this.getAttribute('data-meaning');
+                    if (!word || !meaning) { alert('❌ 단어 정보를 추출할 수 없습니다.'); return; }
+                    window.saveVocabulary({ word: word, meaning: meaning });
+                    this.textContent = '✅ 저장됨';
+                    this.disabled = true;
+                    this.style.background = '#6c757d';
+                });
+            });
         } else {
             bubble.textContent = text;
         }
@@ -979,6 +1109,72 @@
         msgDiv.appendChild(timeDiv);
         container.appendChild(msgDiv);
         container.scrollTop = container.scrollHeight;
+    };
+
+    // ========== 단어 뜻 질문 포맷 (미니멀) ==========
+    window.formatSimpleWord = function(rawText) {
+        // Haiku 응답: "predictive 예측적인(형용사)" 형태
+        var text = rawText.trim();
+        
+        // 영어 단어 추출
+        var wordMatch = text.match(/^([a-zA-Z\-]+)/);
+        var wordOnly = wordMatch ? wordMatch[1] : '';
+        
+        // 한국어 뜻 추출 (영단어 뒤의 모든 텍스트)
+        var meaningPart = text.replace(wordOnly, '').trim();
+        
+        var html = '';
+        html += '<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">';
+        
+        // 영어 단어 (크게)
+        html += '<span style="font-size: 20px; font-weight: bold; color: #667eea;">' + wordOnly + '</span>';
+        
+        // 발음 버튼
+        if (wordOnly) {
+            html += '<button class="speak-btn" onclick="window.speakWord(\'' + wordOnly.replace(/'/g, "\\'") + '\')">🔊</button>';
+        }
+        
+        // 한국어 뜻
+        html += '<span style="font-size: 16px; color: #333;">' + meaningPart + '</span>';
+        
+        // 단어장 저장 버튼
+        html += '<button class="save-vocab-btn" data-word="' + wordOnly + '" data-meaning="' + meaningPart.replace(/"/g, '&quot;') + '">📚 저장</button>';
+        
+        html += '</div>';
+        
+        return html;
+    };
+
+    // ========== 단어 저장 API ==========
+    window.saveVocabulary = async function(vocabData) {
+        if (!window.authToken) { alert('❌ 로그인이 필요합니다.'); return; }
+        try {
+            var res = await fetch(window.API_URL + '/api/vocabulary/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + window.authToken },
+                body: JSON.stringify(vocabData),
+                credentials: 'omit'
+            });
+            var data = await res.json();
+            if (data.success) {
+                alert('✅ 단어장에 저장되었습니다!');
+                // 단어장 카운트 즉시 업데이트
+                var countEl = document.getElementById('vocab-count');
+                if (countEl) {
+                    var current = parseInt(countEl.textContent) || 0;
+                    countEl.textContent = current + 1;
+                }
+                var quizCountEl = document.getElementById('quiz-word-count');
+                if (quizCountEl) {
+                    var qc = parseInt(quizCountEl.textContent) || 0;
+                    quizCountEl.textContent = qc + 1;
+                }
+            } else {
+                alert('⚠️ ' + (data.message || '저장 실패'));
+            }
+        } catch(e) {
+            alert('❌ 저장 실패');
+        }
     };
 
     // ========== 에러 표시 ==========
@@ -1115,7 +1311,6 @@
         var chatInputArea = document.querySelector('.chat-input-area');
         var quizToggleContainer = document.getElementById('quizToggleContainer');
         var quizAreaOld = document.getElementById('quizArea');
-        var loadingEl = document.getElementById('loading');
 
         // 모든 콘텐츠 영역 숨기기
         if (chatMessages) chatMessages.style.display = 'none';
@@ -1128,7 +1323,6 @@
         if (chatInputArea) chatInputArea.style.display = 'none';
         if (quizToggleContainer) quizToggleContainer.style.display = 'none';
         if (quizAreaOld) quizAreaOld.style.display = 'none';
-        if (loadingEl) loadingEl.style.display = 'none';
 
         // 탭 버튼 초기화
         [chatBtn, vocabBtn, problemsBtn, wrongAnswersBtn].forEach(function(btn) {
