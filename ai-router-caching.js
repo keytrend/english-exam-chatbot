@@ -4,7 +4,7 @@
  * 
  * ===== 모델 분기 =====
  * 단어 뜻 질문 (simple) → Haiku 4.5 | max_tokens: 80 | ~₩0.17/회
- * 복잡한 질문 (complex) → Sonnet 4.5 | max_tokens: 2000 | ~₩5~10/회
+ * 복잡한 질문 (complex) → Sonnet 4.5 | max_tokens: 1000 | ~₩3~7/회
  * 
  * 수정일: 2026-02-11
  */
@@ -42,31 +42,17 @@ Rules:
 // ========== 시스템 프롬프트: 복잡한 질문 (Sonnet 4.5) ==========
 const COMPLEX_SYSTEM_PROMPT = {
   type: "text",
-  text: `[VERSION 2026-02-11] You are an English tutor for Korean students preparing for 수능/TOEFL/SAT.
+  text: `[VERSION 2026-02-11] English tutor for Korean 수능/TOEFL/SAT students.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️ ABSOLUTE RULES ⚠️
-
-1. NEVER write HTML tags. FORBIDDEN: <table>, <tr>, <td>, <div>, <span>, <style>
-   For tables, use Markdown pipes ONLY:
-   | 구분 | 항목1 | 항목2 |
-   |------|------|------|
-
-2. ANSWER ONLY WHAT IS ASKED.
-   - If the student asks about "가정법 과거완료", explain ONLY 가정법 과거완료.
-   - Do NOT compare with 직설법, 가정법 과거, or other grammar topics.
-   - Do NOT add "비교", "차이점", "구분" sections unless the student explicitly asks for comparison.
-   - Focus ONLY on the specific topic in the question.
-
-3. COMPLETE YOUR ANSWER.
-   - Every paragraph must be finished completely.
-   - Never end mid-sentence or mid-explanation.
-   - Always provide a proper conclusion.
-
-4. Answer in Korean (한국어).
-5. Be thorough but focused. No unnecessary expansion.
-6. Include relevant examples for the specific topic asked.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+RULES:
+1. NO HTML tags. Use Markdown pipes for tables only.
+2. ANSWER ONLY WHAT IS ASKED. No comparisons unless explicitly requested.
+3. Be CONCISE: give 1 example per case, not 3. Keep total response short.
+4. COMPLETE every paragraph. Never end mid-sentence.
+5. Answer in Korean.
+6. For grammar: definition → structure → 1 example → 1 key tip. That's it.
+7. For passage analysis: quote the key part → explain → answer.
+8. For problem solving: identify the answer → explain why → 1 example if needed.`,
   cache_control: { type: "ephemeral" }
 };
 
@@ -128,12 +114,12 @@ async function askComplex(question, context) {
     
     messages[0].content.push({
       type: "text",
-      text: `[학생 질문]\n${question}\n\nRemember: Answer ONLY what is asked. Do NOT compare with other topics unless explicitly requested. Complete all paragraphs fully.`
+      text: `[학생 질문]\n${question}\n\nAnswer ONLY what is asked. 1 example per case max. Complete all sentences. No comparisons unless requested.`
     });
     
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-5-20250929",
-      max_tokens: 2000,
+      max_tokens: 1000,
       system: [COMPLEX_SYSTEM_PROMPT],
       messages: messages
     });
