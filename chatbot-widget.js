@@ -67,8 +67,8 @@
             }
         }
 
-        /* ===== 로그인 ===== */
-        .login-area {
+        /* ===== 로그인/회원가입 ===== */
+        .auth-area {
             flex: 1;
             display: flex;
             flex-direction: column;
@@ -77,25 +77,44 @@
             padding: 40px;
             text-align: center;
         }
-        .login-area h2 { margin-bottom: 8px; color: #333; }
-        .login-area p { color: #666; margin-bottom: 24px; }
-        .login-area input {
+        .auth-area h2 { margin-bottom: 8px; color: #333; }
+        .auth-area p { color: #666; margin-bottom: 24px; font-size: 14px; }
+        .auth-area input {
             width: 100%; max-width: 360px;
             padding: 12px 16px; margin: 6px 0;
             border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px;
         }
-        .login-area button {
+        .auth-area input:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+        .auth-area button {
             width: 100%; max-width: 360px;
             padding: 12px; margin-top: 16px;
             background: #667eea; color: white; border: none;
             border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer;
         }
-        .login-area button:hover { background: #5568d3; }
+        .auth-area button:hover { background: #5568d3; }
+        .auth-toggle {
+            margin-top: 16px;
+            font-size: 14px;
+            color: #666;
+        }
+        .auth-toggle a {
+            color: #667eea;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .auth-toggle a:hover {
+            text-decoration: underline;
+        }
 
         /* ===== 채팅 영역 ===== */
         #chatArea { display: none; flex-direction: column; flex: 1; min-height: 0; }
         #chatArea.visible { display: flex; }
         #loginArea.hidden { display: none; }
+        #signupArea { display: none; }
+        #signupArea.visible { display: flex; }
 
         /* ===== 헤더 (고정) ===== */
         .chatbot-header {
@@ -308,7 +327,6 @@
 
     // ========== HTML 삽입 ==========
     var html = `
-        <!-- 챗봇 토글 버튼 -->
         <button id="chatbot-toggle-btn" onclick="window.toggleChatbot()">
             <svg viewBox="0 0 24 24">
                 <path d="M12 2C6.48 2 2 6.48 2 12c0 1.54.36 3 .97 4.29L2 22l5.71-.97C9 21.64 10.46 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.38 0-2.68-.3-3.86-.84l-.28-.14-2.9.49.49-2.9-.14-.28C4.3 14.68 4 13.38 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z"/>
@@ -316,16 +334,30 @@
         </button>
 
         <div class="chatbot-container">
-            <!-- 로그인 -->
-            <div id="loginArea" class="login-area">
+            <div id="loginArea" class="auth-area">
                 <h2>🎓 AI 영어 튜터</h2>
                 <p>로그인하여 시작하세요</p>
-                <input type="text" id="userId" placeholder="사용자 ID" />
-                <input type="email" id="userEmail" placeholder="이메일" />
+                <input type="email" id="loginEmail" placeholder="이메일" />
+                <input type="password" id="loginPassword" placeholder="비밀번호" onkeypress="if(event.key==='Enter')window.chatbotLogin()" />
                 <button onclick="window.chatbotLogin()">로그인</button>
+                <div class="auth-toggle">
+                    계정이 없으신가요? <a onclick="window.showSignupForm()">회원가입</a>
+                </div>
             </div>
 
-            <!-- 채팅 -->
+            <div id="signupArea" class="auth-area">
+                <h2>🎓 회원가입</h2>
+                <p>새 계정을 만드세요</p>
+                <input type="text" id="signupName" placeholder="이름" />
+                <input type="email" id="signupEmail" placeholder="이메일" />
+                <input type="password" id="signupPassword" placeholder="비밀번호 (최소 6자)" />
+                <input type="password" id="signupPasswordConfirm" placeholder="비밀번호 확인" onkeypress="if(event.key==='Enter')window.chatbotSignup()" />
+                <button onclick="window.chatbotSignup()">가입하기</button>
+                <div class="auth-toggle">
+                    이미 계정이 있으신가요? <a onclick="window.showLoginForm()">로그인</a>
+                </div>
+            </div>
+
             <div id="chatArea">
                 <div class="chatbot-header">
                     <h1>🎓 AI 영어 튜터</h1>
@@ -334,7 +366,6 @@
                 </div>
                 <div class="error-message" id="errorMessage"></div>
                 
-                <!-- 질문 유형 선택 -->
                 <div style="margin: 15px 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
                     <div style="margin-bottom: 12px; font-weight: bold; color: #495057;">
                         💡 질문 유형을 선택하세요
@@ -363,21 +394,17 @@
                     </div>
                 </div>
                 
-                <!-- 퀴즈 버튼 -->
                 <div style="margin: 0 20px 10px 20px;">
                     <button class="quiz-toggle-btn" onclick="window.toggleQuiz()">
                         🎯 단어 퀴즈 풀기
                     </button>
                 </div>
                 
-                <!-- 퀴즈 영역 -->
                 <div class="quiz-area" id="quizArea">
                     <div class="quiz-word" id="quizWord">Loading...</div>
                     <div class="quiz-pos" id="quizPos"></div>
                     
-                    <div id="quizChoices">
-                        <!-- 선택지가 여기에 동적으로 추가됩니다 -->
-                    </div>
+                    <div id="quizChoices"></div>
                     
                     <div class="quiz-result" id="quizResult"></div>
                     <button class="quiz-next-btn" id="quizNextBtn" onclick="window.loadQuiz()">다음 문제</button>
@@ -409,12 +436,12 @@
     container.innerHTML = html;
     document.body.appendChild(container);
 
-    // ========== JavaScript 코드 ==========
+    // ========== 전역 변수 ==========
     window.API_URL = 'https://english-exam-chatbot.onrender.com';
     window.authToken = localStorage.getItem('authToken');
     window.selectedQuestionType = 'simple';
 
-    // 자동 해설 추출 함수
+    // ========== 유틸리티 함수 ==========
     window.getPageContext = function() {
         var allText = document.body.innerText;
         var startIndex = allText.indexOf('정답:');
@@ -434,41 +461,161 @@
         return window.location.pathname || 'default-page';
     };
 
-    // 페이지 로드 시 실행
-    if (window.authToken) {
-        window.showChatArea();
-        window.loadUsageInfo();
-    }
-
-    // 자동 해설 캐싱
-    var context = window.getPageContext();
-    if (context) {
-        var page_id = window.getPageId();
-        console.log('페이지 로드 완료, 해설 캐싱 준비:', page_id);
-        window.pendingContext = { page_id: page_id, context: context };
-    }
-
-    // 로그인
-    window.chatbotLogin = async function() {
-        var userId = document.getElementById('userId').value.trim();
-        var userEmail = document.getElementById('userEmail').value.trim();
-        if (!userId || !userEmail) return window.showError('사용자 ID와 이메일을 모두 입력해주세요.');
+    // ========== 자동 로그인 ==========
+    window.checkAutoLogin = async function() {
+        var token = localStorage.getItem('authToken');
+        if (!token) {
+            return false;
+        }
 
         try {
-            var res = await fetch(window.API_URL + '/api/auth/token', {
+            var res = await fetch(window.API_URL + '/api/auth/verify', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                }
+            });
+
+            if (res.ok) {
+                var data = await res.json();
+                if (data.success) {
+                    window.authToken = token;
+                    window.showChatArea();
+                    window.loadUsageInfo();
+                    
+                    if (window.pendingContext) {
+                        window.cacheContext(window.pendingContext.page_id, window.pendingContext.context);
+                    }
+                    return true;
+                }
+            }
+            
+            localStorage.removeItem('authToken');
+            return false;
+        } catch(e) {
+            console.error('자동 로그인 실패:', e);
+            return false;
+        }
+    };
+
+    // ========== 페이지 로드 시 실행 ==========
+    window.addEventListener('load', async function() {
+        var context = window.getPageContext();
+        if (context) {
+            var page_id = window.getPageId();
+            console.log('페이지 로드 완료, 해설 캐싱 준비:', page_id);
+            window.pendingContext = { page_id: page_id, context: context };
+        }
+
+        await window.checkAutoLogin();
+    });
+
+    // ========== 폼 전환 ==========
+    window.showLoginForm = function() {
+        document.getElementById('signupArea').classList.remove('visible');
+        document.getElementById('loginArea').classList.remove('hidden');
+    };
+
+    window.showSignupForm = function() {
+        document.getElementById('loginArea').classList.add('hidden');
+        document.getElementById('signupArea').classList.add('visible');
+    };
+
+    // ========== 회원가입 ==========
+    window.chatbotSignup = async function() {
+        var name = document.getElementById('signupName').value.trim();
+        var email = document.getElementById('signupEmail').value.trim();
+        var password = document.getElementById('signupPassword').value;
+        var passwordConfirm = document.getElementById('signupPasswordConfirm').value;
+
+        if (!name || !email || !password) {
+            return window.showError('모든 항목을 입력해주세요.');
+        }
+
+        if (password.length < 6) {
+            return window.showError('비밀번호는 최소 6자 이상이어야 합니다.');
+        }
+
+        if (password !== passwordConfirm) {
+            return window.showError('비밀번호가 일치하지 않습니다.');
+        }
+
+        var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return window.showError('올바른 이메일 형식이 아닙니다.');
+        }
+
+        try {
+            var res = await fetch(window.API_URL + '/api/auth/signup', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: userId, userEmail: userEmail })
+                body: JSON.stringify({ 
+                    name: name,
+                    email: email, 
+                    password: password 
+                })
             });
+
             var data = await res.json();
-            if (data.token) {
+            
+            if (data.success && data.token) {
                 window.authToken = data.token;
                 localStorage.setItem('authToken', window.authToken);
+                
                 if (window.pendingContext) {
                     window.cacheContext(window.pendingContext.page_id, window.pendingContext.context);
                 }
+                
                 window.showChatArea();
                 window.loadUsageInfo();
+                
+                document.getElementById('signupName').value = '';
+                document.getElementById('signupEmail').value = '';
+                document.getElementById('signupPassword').value = '';
+                document.getElementById('signupPasswordConfirm').value = '';
+            } else {
+                window.showError(data.message || '회원가입 실패');
+            }
+        } catch(e) {
+            window.showError('서버 연결 실패');
+        }
+    };
+
+    // ========== 로그인 ==========
+    window.chatbotLogin = async function() {
+        var email = document.getElementById('loginEmail').value.trim();
+        var password = document.getElementById('loginPassword').value;
+        
+        if (!email || !password) {
+            return window.showError('이메일과 비밀번호를 모두 입력해주세요.');
+        }
+
+        try {
+            var res = await fetch(window.API_URL + '/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    email: email, 
+                    password: password 
+                })
+            });
+
+            var data = await res.json();
+            
+            if (data.success && data.token) {
+                window.authToken = data.token;
+                localStorage.setItem('authToken', window.authToken);
+                
+                if (window.pendingContext) {
+                    window.cacheContext(window.pendingContext.page_id, window.pendingContext.context);
+                }
+                
+                window.showChatArea();
+                window.loadUsageInfo();
+                
+                document.getElementById('loginEmail').value = '';
+                document.getElementById('loginPassword').value = '';
             } else {
                 window.showError(data.message || '로그인 실패');
             }
@@ -477,17 +624,18 @@
         }
     };
 
-    // 로그아웃
+    // ========== 로그아웃 ==========
     window.chatbotLogout = function() {
-        localStorage.clear();
+        localStorage.removeItem('authToken');
         window.authToken = null;
         document.getElementById('chatArea').classList.remove('visible');
         document.getElementById('loginArea').classList.remove('hidden');
-        document.getElementById('userId').value = '';
-        document.getElementById('userEmail').value = '';
+        document.getElementById('signupArea').classList.remove('visible');
+        document.getElementById('loginEmail').value = '';
+        document.getElementById('loginPassword').value = '';
     };
 
-    // 토큰 만료 체크
+    // ========== 토큰 만료 체크 ==========
     window.checkAuthError = function(res) {
         if (res.status === 401 || res.status === 403) {
             window.chatbotLogout();
@@ -497,13 +645,14 @@
         return false;
     };
 
-    // 채팅 영역 표시
+    // ========== 채팅 영역 표시 ==========
     window.showChatArea = function() {
         document.getElementById('loginArea').classList.add('hidden');
+        document.getElementById('signupArea').classList.remove('visible');
         document.getElementById('chatArea').classList.add('visible');
     };
 
-    // 캐싱 함수
+    // ========== 캐싱 함수 ==========
     window.cacheContext = async function(page_id, context) {
         try {
             var res = await fetch(window.API_URL + '/api/cache-context', {
@@ -523,7 +672,7 @@
         }
     };
 
-    // 질문 유형 선택
+    // ========== 질문 유형 선택 ==========
     window.selectQuestionType = function(type) {
         window.selectedQuestionType = type;
         
@@ -549,7 +698,7 @@
         }
     };
 
-    // 사용량 로드
+    // ========== 사용량 로드 ==========
     window.loadUsageInfo = async function() {
         try {
             var res = await fetch(window.API_URL + '/api/usage', {
@@ -562,10 +711,12 @@
                     '남은 질문 횟수(간단한 질문: ' + data['이번달']['간단한질문']['남음'] +
                     ', 복잡한 질문: ' + data['이번달']['복잡한질문']['남음'] + ')';
             }
-        } catch(e) { console.error(e); }
+        } catch(e) { 
+            console.error(e); 
+        }
     };
 
-    // 질문 전송
+    // ========== 질문 전송 ==========
     window.sendQuestion = async function() {
         var input = document.getElementById('questionInput');
         var question = input.value.trim();
@@ -579,14 +730,19 @@
         try {
             var res = await fetch(window.API_URL + '/api/chat', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + window.authToken },
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'Authorization': 'Bearer ' + window.authToken 
+                },
                 body: JSON.stringify({ 
                     question: question, 
                     questionType: window.selectedQuestionType,
                     page_id: window.getPageId()
                 })
             });
+            
             if (window.checkAuthError(res)) return;
+            
             var data = await res.json();
             if (data.answer) {
                 window.addMessage(data.answer, 'bot');
@@ -602,7 +758,7 @@
         }
     };
 
-    // Markdown → HTML 변환
+    // ========== Markdown → HTML 변환 ==========
     window.formatMessage = function(rawText) {
         var text = rawText
             .replace(/&/g, '&amp;')
@@ -621,8 +777,15 @@
         for (var i = 0; i < lines.length; i++) {
             var line = lines[i].trim();
 
-            if (line === '') { html += '<div class="gap"></div>'; continue; }
-            if (/^[-_*]{3,}$/.test(line)) { html += '<div class="divider"></div>'; continue; }
+            if (line === '') { 
+                html += '<div class="gap"></div>'; 
+                continue; 
+            }
+            
+            if (/^[-_*]{3,}$/.test(line)) { 
+                html += '<div class="divider"></div>'; 
+                continue; 
+            }
 
             var numM = line.match(/^(\d+)[.)]\s+([\s\S]*)/);
             if (numM) {
@@ -663,7 +826,7 @@
         return html;
     };
 
-    // 메시지 추가
+    // ========== 메시지 추가 ==========
     window.addMessage = function(text, sender) {
         var container = document.getElementById('chatMessages');
 
@@ -681,7 +844,10 @@
 
         var timeDiv = document.createElement('div');
         timeDiv.className = 'msg-time';
-        timeDiv.textContent = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+        timeDiv.textContent = new Date().toLocaleTimeString('ko-KR', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
 
         msgDiv.appendChild(bubble);
         msgDiv.appendChild(timeDiv);
@@ -689,21 +855,23 @@
         container.scrollTop = container.scrollHeight;
     };
 
-    // 에러 표시
+    // ========== 에러 표시 ==========
     window.showError = function(msg) {
         var el = document.getElementById('errorMessage');
         el.textContent = msg;
         el.classList.add('active');
-        setTimeout(function() { el.classList.remove('active'); }, 5000);
+        setTimeout(function() { 
+            el.classList.remove('active'); 
+        }, 5000);
     };
 
-    // 챗봇 토글
+    // ========== 챗봇 토글 ==========
     window.toggleChatbot = function() {
         var container = document.querySelector('.chatbot-container');
         container.classList.toggle('open');
     };
 
-    // 퀴즈 기능
+    // ========== 퀴즈 토글 ==========
     window.toggleQuiz = function() {
         var quizArea = document.getElementById('quizArea');
         var isActive = quizArea.classList.contains('active');
@@ -716,6 +884,7 @@
         }
     };
 
+    // ========== 퀴즈 로드 ==========
     window.loadQuiz = async function() {
         if (!window.authToken) {
             window.showError('로그인이 필요합니다');
@@ -745,9 +914,11 @@
         }
     };
 
+    // ========== 퀴즈 표시 ==========
     window.displayQuiz = function(quiz) {
         document.getElementById('quizWord').textContent = quiz.word;
-        document.getElementById('quizPos').textContent = quiz.part_of_speech ? '(' + quiz.part_of_speech + ')' : '';
+        document.getElementById('quizPos').textContent = quiz.part_of_speech ? 
+            '(' + quiz.part_of_speech + ')' : '';
         
         var choicesContainer = document.getElementById('quizChoices');
         choicesContainer.innerHTML = '';
@@ -765,6 +936,7 @@
         window.currentQuizAnswer = quiz.correct_index;
     };
 
+    // ========== 퀴즈 답변 선택 ==========
     window.selectAnswer = function(selectedIndex, correctIndex, choices) {
         var allChoices = document.querySelectorAll('.quiz-choice');
         allChoices.forEach(function(choice) {
@@ -779,7 +951,9 @@
         
         var resultDiv = document.getElementById('quizResult');
         resultDiv.className = 'quiz-result show ' + (isCorrect ? 'correct' : 'wrong');
-        resultDiv.textContent = isCorrect ? '🎉 정답입니다!' : '❌ 틀렸습니다! 정답: ' + choices[correctIndex];
+        resultDiv.textContent = isCorrect ? 
+            '🎉 정답입니다!' : 
+            '❌ 틀렸습니다! 정답: ' + choices[correctIndex];
         
         document.getElementById('quizNextBtn').classList.add('show');
     };
