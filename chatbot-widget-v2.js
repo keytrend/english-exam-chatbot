@@ -584,6 +584,7 @@
     window.API_URL = 'https://english-exam-chatbot.onrender.com';
     window.authToken = localStorage.getItem('authToken');
     window.selectedQuestionType = 'simple';
+    window.userInteractingWithAuth = false; // 사용자가 로그인/가입 폼 조작 중인지
 
     // ========== 유틸리티 함수 ==========
     window.getPageContext = function() {
@@ -620,6 +621,12 @@
                     'Authorization': 'Bearer ' + token
                 }
             });
+
+            // 사용자가 이미 로그인/가입 폼을 조작 중이면 자동 전환하지 않음
+            if (window.userInteractingWithAuth) {
+                console.log('[AutoLogin] 사용자가 폼 조작 중 → 자동 전환 취소');
+                return false;
+            }
 
             if (res.ok) {
                 var data = await res.json();
@@ -662,9 +669,23 @@
     };
 
     window.showSignupForm = function() {
+        window.userInteractingWithAuth = true;
         document.getElementById('loginArea').classList.add('hidden');
         document.getElementById('signupArea').classList.add('visible');
     };
+
+    // 로그인/가입 입력 필드에 타이핑 시작 시 플래그 설정
+    setTimeout(function() {
+        var authInputs = document.querySelectorAll('#loginArea input, #signupArea input');
+        authInputs.forEach(function(input) {
+            input.addEventListener('focus', function() {
+                window.userInteractingWithAuth = true;
+            });
+            input.addEventListener('input', function() {
+                window.userInteractingWithAuth = true;
+            });
+        });
+    }, 100);
 
     // ========== 회원가입 ==========
     window.chatbotSignup = async function() {
@@ -1287,14 +1308,35 @@
             e.preventDefault();
             var deltaX = e.clientX - startX;
             var deltaY = e.clientY - startY;
-            chatContainer.style.left = (containerLeft + deltaX) + 'px';
-            chatContainer.style.top = (containerTop + deltaY) + 'px';
+            
+            // 화면 경계 체크 - 챗봇이 화면 밖으로 나가지 않도록
+            var newLeft = containerLeft + deltaX;
+            var newTop = containerTop + deltaY;
+            var maxLeft = window.innerWidth - 100; // 최소 100px는 보이도록
+            var maxTop = window.innerHeight - 80;
+            
+            if (newLeft < -300) newLeft = -300;
+            if (newLeft > maxLeft) newLeft = maxLeft;
+            if (newTop < 0) newTop = 0;  // 위로 올라가지 않도록
+            if (newTop > maxTop) newTop = maxTop;
+            
+            chatContainer.style.left = newLeft + 'px';
+            chatContainer.style.top = newTop + 'px';
         });
 
         document.addEventListener('mouseup', function() {
             if (!isDragging) return;
             isDragging = false;
             chatContainer.style.cursor = 'move';
+            
+            // 최종 위치 보정 - 헤더가 반드시 화면 안에 있도록
+            var rect = chatContainer.getBoundingClientRect();
+            if (rect.top < 0) {
+                chatContainer.style.top = '10px';
+            }
+            if (rect.left < -300) {
+                chatContainer.style.left = '10px';
+            }
         });
 
         // 더블클릭으로 전체화면 토글
