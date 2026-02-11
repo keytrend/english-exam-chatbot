@@ -8,7 +8,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const { generateToken, verifyToken } = require('./auth');
-const { supabase } = require('./database');
+const { pool } = require('./database');
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 회원가입
@@ -25,13 +25,12 @@ router.post('/signup', async (req, res) => {
     }
 
     // 이메일 중복 확인
-    const { data: existingUser } = await supabase
-      .from('users')
-      .select('id')
-      .eq('email', email)
-      .single();
+    const existingUser = await pool.query(
+      'SELECT id FROM users WHERE email = $1',
+      [email]
+    );
 
-    if (existingUser) {
+    if (existingUser.rows.length > 0) {
       return res.status(400).json({
         success: false,
         error: '이미 가입된 이메일입니다.'
@@ -42,18 +41,14 @@ router.post('/signup', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // 사용자 생성
-    const { data: newUser, error } = await supabase
-      .from('users')
-      .insert({
-        email: email,
-        password: hashedPassword,
-        name: name || email.split('@')[0],
-        created_at: new Date().toISOString()
-      })
-      .select()
-      .single();
+    const result = await pool.query(
+      `INSERT INTO users (email, password, name, created_at)
+       VALUES ($1, $2, $3, NOW())
+       RETURNING id, email, name`,
+      [email, hashedPassword, name || email.split('@')[0]]
+    );
 
-    if (error) throw error;
+    const newUser = result.rows[0];
 
     // JWT 토큰 생성 (30일)
     const token = generateToken(newUser.id, newUser.email);
@@ -94,18 +89,19 @@ router.post('/login', async (req, res) => {
     }
 
     // 사용자 찾기
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
-      .single();
+    const result = await pool.query(
+      'SELECT * FROM users WHERE email = $1',
+      [email]
+    );
 
-    if (error || !user) {
+    if (result.rows.length === 0) {
       return res.status(401).json({
         success: false,
         error: '이메일 또는 비밀번호가 올바르지 않습니다.'
       });
     }
+
+    const user = result.rows[0];
 
     // 비밀번호 확인
     const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -121,10 +117,10 @@ router.post('/login', async (req, res) => {
     const token = generateToken(user.id, user.email);
 
     // 마지막 로그인 시간 업데이트
-    await supabase
-      .from('users')
-      .update({ last_login: new Date().toISOString() })
-      .eq('id', user.id);
+    await pool.query(
+      'UPDATE users SET last_login = NOW() WHERE id = $1',
+      [user.id]
+    );
 
     console.log('[Auth] 로그인 성공:', email);
 
@@ -152,7 +148,9 @@ router.post('/login', async (req, res) => {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 router.post('/verify', async (req, res) => {
   try {
-    const { token } = req.body;
+    // Authorization 헤더에서 토큰 추출
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
       return res.status(401).json({
@@ -172,13 +170,12 @@ router.post('/verify', async (req, res) => {
     }
 
     // 사용자 정보 조회
-    const { data: user } = await supabase
-      .from('users')
-      .select('id, email, name')
-      .eq('id', verification.userId)
-      .single();
+    const result = await pool.query(
+      'SELECT id, email, name FROM users WHERE id = $1',
+      [verification.userId]
+    );
 
-    if (!user) {
+    if (result.rows.length === 0) {
       return res.status(401).json({
         success: false,
         error: '사용자를 찾을 수 없습니다.'
@@ -187,7 +184,7 @@ router.post('/verify', async (req, res) => {
 
     res.json({
       success: true,
-      user: user
+      user: result.rows[0]
     });
 
   } catch (error) {
