@@ -719,12 +719,19 @@
                     name: name,
                     email: email, 
                     password: password 
-                })
+                }),
+                credentials: 'omit'
             });
 
-            var data = await res.json();
+            var data;
+            try { data = await res.json(); } catch(parseErr) { 
+                return window.showError('서버 응답 오류 (status: ' + res.status + ')'); 
+            }
+            
+            console.log('[Signup] Response:', res.status, data);
             
             if (data.success && data.token) {
+                window.userInteractingWithAuth = false;
                 window.authToken = data.token;
                 localStorage.setItem('authToken', window.authToken);
                 
@@ -763,12 +770,19 @@
                 body: JSON.stringify({ 
                     email: email, 
                     password: password 
-                })
+                }),
+                credentials: 'omit'
             });
 
-            var data = await res.json();
+            var data;
+            try { data = await res.json(); } catch(parseErr) {
+                return window.showError('서버 응답 오류 (status: ' + res.status + ')');
+            }
+            
+            console.log('[Login] Response:', res.status, data);
             
             if (data.success && data.token) {
+                window.userInteractingWithAuth = false;
                 window.authToken = data.token;
                 localStorage.setItem('authToken', window.authToken);
                 
