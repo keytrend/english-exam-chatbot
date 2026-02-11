@@ -418,7 +418,7 @@
                 </div>
                 <div class="error-message" id="errorMessage"></div>
                 
-                <div style="margin: 15px 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
+                <div id="questionTypeBox" style="margin: 15px 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
                     <div style="margin-bottom: 12px; font-weight: bold; color: #495057;">
                         💡 질문 유형을 선택하세요
                     </div>
@@ -446,7 +446,7 @@
                     </div>
                 </div>
                 
-                <div style="margin: 0 20px 10px 20px;">
+                <div id="quizToggleContainer" style="margin: 0 20px 10px 20px;">
                     <button class="quiz-toggle-btn" onclick="window.toggleQuiz()">
                         🎯 단어 퀴즈 풀기
                     </button>
@@ -1065,7 +1065,7 @@
     // ========== 탭 전환 ==========
     window.switchTab = function(tab) {
         localStorage.setItem('activeTab', tab);
-        var chatArea = document.querySelector('.chat-messages');
+        var chatMessages = document.querySelector('.chat-messages');
         var vocabArea = document.getElementById('vocabularyArea');
         var problemsArea = document.getElementById('savedProblemsArea');
         var wrongAnswersArea = document.getElementById('wrongAnswersArea');
@@ -1075,14 +1075,22 @@
         var wrongAnswersBtn = document.getElementById('tab-wrong-answers');
         var questionTypeBox = document.getElementById('questionTypeBox');
         var chatInputArea = document.querySelector('.chat-input-area');
-        var quizToggleBtn = document.querySelector('.quiz-toggle-btn');
+        var quizToggleContainer = document.getElementById('quizToggleContainer');
         var quizAreaOld = document.getElementById('quizArea');
+        var loadingEl = document.getElementById('loading');
 
-        // 모든 숨기기
-        if (chatArea) chatArea.style.display = 'none';
+        // 모든 콘텐츠 영역 숨기기
+        if (chatMessages) chatMessages.style.display = 'none';
         if (vocabArea) vocabArea.style.display = 'none';
         if (problemsArea) problemsArea.style.display = 'none';
         if (wrongAnswersArea) wrongAnswersArea.style.display = 'none';
+
+        // 채팅 전용 요소 숨기기
+        if (questionTypeBox) questionTypeBox.style.display = 'none';
+        if (chatInputArea) chatInputArea.style.display = 'none';
+        if (quizToggleContainer) quizToggleContainer.style.display = 'none';
+        if (quizAreaOld) quizAreaOld.style.display = 'none';
+        if (loadingEl) loadingEl.style.display = 'none';
 
         // 탭 버튼 초기화
         [chatBtn, vocabBtn, problemsBtn, wrongAnswersBtn].forEach(function(btn) {
@@ -1090,35 +1098,23 @@
         });
 
         if (tab === 'chat') {
-            if (chatArea) chatArea.style.display = 'block';
+            if (chatMessages) chatMessages.style.display = 'block';
             if (chatBtn) chatBtn.style.background = 'rgba(255,255,255,0.3)';
             if (chatInputArea) chatInputArea.style.display = 'block';
             if (questionTypeBox) questionTypeBox.style.display = 'block';
-            if (quizToggleBtn) quizToggleBtn.style.display = 'block';
-            if (quizAreaOld) quizAreaOld.style.display = quizAreaOld.classList.contains('active') ? 'block' : 'none';
+            if (quizToggleContainer) quizToggleContainer.style.display = 'block';
+            if (quizAreaOld && quizAreaOld.classList.contains('active')) quizAreaOld.style.display = 'block';
         } else if (tab === 'vocabulary') {
             if (vocabArea) vocabArea.style.display = 'block';
             if (vocabBtn) vocabBtn.style.background = 'rgba(255,255,255,0.3)';
-            if (chatInputArea) chatInputArea.style.display = 'none';
-            if (questionTypeBox) questionTypeBox.style.display = 'none';
-            if (quizToggleBtn) quizToggleBtn.style.display = 'none';
-            if (quizAreaOld) quizAreaOld.style.display = 'none';
             window.loadVocabularyList();
         } else if (tab === 'saved-problems') {
             if (problemsArea) problemsArea.style.display = 'block';
             if (problemsBtn) problemsBtn.style.background = 'rgba(255,255,255,0.3)';
-            if (chatInputArea) chatInputArea.style.display = 'none';
-            if (questionTypeBox) questionTypeBox.style.display = 'none';
-            if (quizToggleBtn) quizToggleBtn.style.display = 'none';
-            if (quizAreaOld) quizAreaOld.style.display = 'none';
             window.loadSavedProblemsList();
         } else if (tab === 'wrong-answers') {
             if (wrongAnswersArea) wrongAnswersArea.style.display = 'block';
             if (wrongAnswersBtn) wrongAnswersBtn.style.background = 'rgba(255,255,255,0.3)';
-            if (chatInputArea) chatInputArea.style.display = 'none';
-            if (questionTypeBox) questionTypeBox.style.display = 'none';
-            if (quizToggleBtn) quizToggleBtn.style.display = 'none';
-            if (quizAreaOld) quizAreaOld.style.display = 'none';
             window.loadWrongAnswersList();
         }
     };
@@ -1273,13 +1269,163 @@
         } catch(e) { alert('❌ 삭제 실패'); }
     };
 
-    // ========== 수능 단어 퀴즈 (탭에서 시작) ==========
+    // ========== 수능 단어 퀴즈 ==========
+    var publicQuizScore = { correct: 0, wrong: 0 };
+    var publicQuizCount = 0;
+    var publicQuizAnswered = false;
+
     window.startPublicQuiz = function() {
-        alert('수능 단어 퀴즈는 단어장 탭의 🎯 수능 단어 퀴즈 버튼을 눌러주세요.');
+        document.getElementById('vocabularyList').style.display = 'none';
+        document.getElementById('vocabEmpty').style.display = 'none';
+        var searchEl = document.getElementById('vocabSearch');
+        if (searchEl) searchEl.style.display = 'none';
+        document.getElementById('quiz-start-btn').style.display = 'none';
+        document.getElementById('public-quiz-start-btn').style.display = 'none';
+        document.getElementById('public-quiz-area').style.display = 'block';
+
+        publicQuizScore = { correct: 0, wrong: 0 };
+        publicQuizCount = 0;
+        publicQuizAnswered = false;
+
+        window.showPublicQuiz();
     };
 
+    window.showPublicQuiz = async function() {
+        var quizArea = document.getElementById('public-quiz-area');
+        publicQuizAnswered = false;
+        publicQuizCount++;
+
+        quizArea.innerHTML = '<div style="text-align: center; padding: 60px 20px;"><div style="font-size: 36px; margin-bottom: 12px;">⏳</div><div style="color: #f5576c; font-weight: bold;">문제 불러오는 중...</div></div>';
+
+        try {
+            var res = await fetch(window.API_URL + '/api/quiz/random', {
+                headers: { 'Authorization': 'Bearer ' + window.authToken },
+                credentials: 'omit'
+            });
+            var data = await res.json();
+
+            if (!data.success || !data.quiz) {
+                throw new Error('퀴즈 데이터 없음');
+            }
+
+            var quiz = data.quiz;
+            var posMap = { 'noun': '명', 'verb': '동', 'adjective': '형', 'adverb': '부', 'preposition': '전', 'conjunction': '접' };
+            var posDisplay = posMap[quiz.part_of_speech] || quiz.part_of_speech || '';
+
+            var html = '';
+            html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">';
+            html += '<span style="color: #f5576c; font-weight: bold; font-size: 15px;">🎯 수능 단어 퀴즈</span>';
+            html += '<div>';
+            html += '<span style="color: #999; font-size: 13px;">' + publicQuizCount + '번째</span>';
+            html += '<span style="color: #28a745; font-size: 13px; margin-left: 10px;">✅' + publicQuizScore.correct + '</span>';
+            html += '<span style="color: #dc3545; font-size: 13px; margin-left: 6px;">❌' + publicQuizScore.wrong + '</span>';
+            html += '</div></div>';
+
+            html += '<div style="background: white; padding: 24px 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">';
+            html += '<div style="text-align: center; margin-bottom: 6px; font-size: 12px; color: #999;">다음 영어 단어의 뜻은?</div>';
+            html += '<div style="text-align: center; font-size: 24px; font-weight: bold; color: #333; margin-bottom: 4px;">' + quiz.word;
+            if (posDisplay) html += ' <span style="font-size: 14px; color: #999; font-weight: normal;">(' + posDisplay + ')</span>';
+            html += '</div>';
+            html += '<div style="text-align: center; margin-bottom: 20px;">';
+            html += '<button onclick="window.speakWord(\'' + quiz.word.replace(/'/g, "\\'") + '\')" style="padding: 4px 10px; background: #f5576c; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">🔊 발음</button>';
+            html += '</div>';
+
+            html += '<div id="public-quiz-options">';
+            var labels = ['①', '②', '③', '④', '⑤'];
+            for (var i = 0; i < quiz.choices.length; i++) {
+                html += '<label id="public-option-' + i + '" data-correct="' + (i === quiz.correct_index ? 'true' : 'false') + '" style="display: block; padding: 12px 14px; margin-bottom: 8px; background: #f8f9fa; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; font-size: 14px;" onclick="window.selectPublicOption(' + i + ')">';
+                html += '<input type="radio" name="public-answer" value="' + i + '" style="margin-right: 10px; accent-color: #f5576c;">';
+                html += '<span>' + labels[i] + ' ' + quiz.choices[i] + '</span>';
+                html += '</label>';
+            }
+            html += '</div></div>';
+
+            html += '<div style="margin-top: 14px; display: flex; gap: 10px;">';
+            html += '<button onclick="window.exitPublicQuiz()" style="flex: 1; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px;">🚪 나가기</button>';
+            html += '<button id="public-check-btn" onclick="window.checkPublicAnswer()" style="flex: 2; padding: 12px; background: #f5576c; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; opacity: 0.5;" disabled>✔️ 정답 확인</button>';
+            html += '<button id="public-next-btn" onclick="window.showPublicQuiz()" style="flex: 2; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; display: none;">➡️ 다음 문제</button>';
+            html += '</div>';
+
+            quizArea.innerHTML = html;
+
+        } catch(e) {
+            console.error('수능 퀴즈 로드 실패:', e);
+            quizArea.innerHTML = '<div style="text-align: center; padding: 40px;"><div style="color: #dc3545; margin-bottom: 16px;">❌ 문제 불러오기 실패</div><button onclick="window.showPublicQuiz()" style="padding: 10px 20px; background: #f5576c; color: white; border: none; border-radius: 8px; cursor: pointer;">다시 시도</button> <button onclick="window.exitPublicQuiz()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; margin-left: 8px;">나가기</button></div>';
+        }
+    };
+
+    window.selectPublicOption = function(index) {
+        if (publicQuizAnswered) return;
+        for (var i = 0; i < 5; i++) {
+            var label = document.getElementById('public-option-' + i);
+            if (label) { label.style.border = '2px solid #e0e0e0'; label.style.background = '#f8f9fa'; }
+        }
+        var selected = document.getElementById('public-option-' + index);
+        if (selected) {
+            selected.style.border = '2px solid #f5576c';
+            selected.style.background = '#fff0f3';
+            var radio = selected.querySelector('input[type="radio"]');
+            if (radio) radio.checked = true;
+        }
+        var checkBtn = document.getElementById('public-check-btn');
+        if (checkBtn) { checkBtn.disabled = false; checkBtn.style.opacity = '1'; }
+    };
+
+    window.checkPublicAnswer = function() {
+        if (publicQuizAnswered) return;
+        var selectedRadio = document.querySelector('input[name="public-answer"]:checked');
+        if (!selectedRadio) { alert('보기를 선택해주세요!'); return; }
+
+        publicQuizAnswered = true;
+        var selectedIndex = parseInt(selectedRadio.value);
+
+        for (var i = 0; i < 5; i++) {
+            var label = document.getElementById('public-option-' + i);
+            if (!label) continue;
+            label.style.cursor = 'default';
+            label.onclick = null;
+            var isCorrect = label.getAttribute('data-correct') === 'true';
+            if (isCorrect) {
+                label.style.border = '2px solid #28a745'; label.style.background = '#d4edda';
+                label.querySelector('span').innerHTML += ' ✅';
+            } else if (i === selectedIndex) {
+                label.style.border = '2px solid #dc3545'; label.style.background = '#f8d7da';
+                label.querySelector('span').innerHTML += ' ❌';
+            } else { label.style.opacity = '0.5'; }
+        }
+
+        var selectedLabel = document.getElementById('public-option-' + selectedIndex);
+        if (selectedLabel && selectedLabel.getAttribute('data-correct') === 'true') {
+            publicQuizScore.correct++;
+        } else {
+            publicQuizScore.wrong++;
+        }
+
+        document.getElementById('public-check-btn').style.display = 'none';
+        document.getElementById('public-next-btn').style.display = 'block';
+    };
+
+    window.exitPublicQuiz = function() {
+        document.getElementById('public-quiz-area').style.display = 'none';
+        document.getElementById('vocabularyList').style.display = 'flex';
+        var searchEl = document.getElementById('vocabSearch');
+        if (searchEl) searchEl.style.display = 'block';
+        document.getElementById('quiz-start-btn').style.display = 'block';
+        document.getElementById('public-quiz-start-btn').style.display = 'block';
+    };
+
+    // ========== 발음 듣기 ==========
+    window.speakWord = function(word) {
+        if (!('speechSynthesis' in window)) { alert('이 브라우저는 발음 기능을 지원하지 않습니다.'); return; }
+        window.speechSynthesis.cancel();
+        var utterance = new SpeechSynthesisUtterance(word);
+        utterance.lang = 'en-US'; utterance.rate = 0.9;
+        window.speechSynthesis.speak(utterance);
+    };
+
+    // ========== 내 단어 퀴즈 ==========
     window.startVocabQuiz = function() {
-        alert('내 단어 퀴즈 기능은 단어를 먼저 저장한 후 사용할 수 있습니다.');
+        alert('📚 단어장에 단어를 먼저 저장해주세요!\n\n채팅에서 단어를 질문하고 저장한 후 퀴즈를 시작하세요.');
     };
 
     // ========== 챗봇 상태 복원 ==========
