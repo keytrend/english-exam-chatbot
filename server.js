@@ -52,6 +52,7 @@ const savedProblemsRouter = require('./saved-problems');
 const wrongAnswersRouter = require('./wrong-answers');
 const { answerQuestion, calculateCost } = require('./ai-router-caching');
 const authRouter = require('./auth-routes');
+const passwordResetRouter = require('./password-reset');  // ← 추가
 
 // const app = express();
 const PORT = process.env.PORT || 3000;
@@ -278,6 +279,9 @@ app.use('/api/wrong-answers', wrongAnswersRouter);
 // ========== 인증 API ==========
 app.use('/api/auth', authRouter);
 // ==============================
+// ========== 비밀번호 재설정 API ==========
+app.use('/api/auth', passwordResetRouter);  // ← 추가
+// ========================================
 app.get('/api/usage', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
