@@ -2018,9 +2018,7 @@
 
             html += '<div style="background: white; padding: 24px 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">';
             html += '<div style="text-align: center; margin-bottom: 6px; font-size: 12px; color: #999;">다음 영어 단어의 뜻은?</div>';
-            html += '<div style="text-align: center; font-size: 24px; font-weight: bold; color: #333; margin-bottom: 4px;">' + quiz.word;
-            if (posDisplay) html += ' <span style="font-size: 14px; color: #999; font-weight: normal;">(' + posDisplay + ')</span>';
-            html += '</div>';
+            html += '<div style="text-align: center; font-size: 24px; font-weight: bold; color: #333; margin-bottom: 4px;">' + quiz.word + '</div>';
             html += '<div style="text-align: center; margin-bottom: 20px;">';
             html += '<button onclick="window.speakWord(\'' + quiz.word.replace(/'/g, "\\'") + '\')" style="padding: 4px 10px; background: #f5576c; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">🔊 발음</button>';
             html += '</div>';
@@ -2028,9 +2026,10 @@
             html += '<div id="public-quiz-options">';
             var labels = ['①', '②', '③', '④', '⑤'];
             for (var i = 0; i < quiz.choices.length; i++) {
+                var pubChoice = window.stripPOS ? window.stripPOS(quiz.choices[i]) : quiz.choices[i];
                 html += '<label id="public-option-' + i + '" data-correct="' + (i === quiz.correct_index ? 'true' : 'false') + '" style="display: block; padding: 12px 14px; margin-bottom: 8px; background: #f8f9fa; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; font-size: 14px;" onclick="window.selectPublicOption(' + i + ')">';
                 html += '<input type="radio" name="public-answer" value="' + i + '" style="margin-right: 10px; accent-color: #f5576c;">';
-                html += '<span>' + labels[i] + ' ' + quiz.choices[i] + '</span>';
+                html += '<span>' + labels[i] + ' ' + pubChoice + '</span>';
                 html += '</label>';
             }
             html += '</div></div>';
@@ -2123,9 +2122,43 @@
     var myQuizCount = 0;
     var myQuizAnswered = false;
     var myVocabWords = [];
+    var myQuizOrder = [];  // 셔플된 출제 순서
+    var myQuizIndex = 0;   // 현재 출제 위치
+
+    // 품사 제거 함수: "자율적인, 독립적인(형용사)" → "자율적인, 독립적인"
+    window.stripPOS = function(text) {
+        if (!text) return '';
+        // 모든 형태의 품사 표기 제거
+        var result = text;
+        result = result.replace(/\s*\(명사\)/g, '');
+        result = result.replace(/\s*\(동사\)/g, '');
+        result = result.replace(/\s*\(형용사\)/g, '');
+        result = result.replace(/\s*\(부사\)/g, '');
+        result = result.replace(/\s*\(전치사\)/g, '');
+        result = result.replace(/\s*\(접속사\)/g, '');
+        result = result.replace(/\s*\(noun\)/gi, '');
+        result = result.replace(/\s*\(verb\)/gi, '');
+        result = result.replace(/\s*\(adjective\)/gi, '');
+        result = result.replace(/\s*\(adverb\)/gi, '');
+        result = result.replace(/\s*\(명\)/g, '');
+        result = result.replace(/\s*\(동\)/g, '');
+        result = result.replace(/\s*\(형\)/g, '');
+        result = result.replace(/\s*\(부\)/g, '');
+        return result.trim();
+    };
+
+    // 품사 추출 함수: "자율적인, 독립적인(형용사)" → "adjective"
+    window.extractPOS = function(text) {
+        if (!text) return 'noun';
+        var match = text.match(/\((명사|동사|형용사|부사|전치사|접속사)\)\s*$/);
+        if (match) {
+            var posMap = { '명사': 'noun', '동사': 'verb', '형용사': 'adjective', '부사': 'adverb', '전치사': 'preposition', '접속사': 'conjunction' };
+            return posMap[match[1]] || 'noun';
+        }
+        return 'noun';
+    };
 
     window.startVocabQuiz = async function() {
-        // 1. 단어장에서 단어 목록 가져오기
         try {
             var res = await fetch(window.API_URL + '/api/vocabulary/list', {
                 headers: { 'Authorization': 'Bearer ' + window.authToken },
@@ -2155,6 +2188,15 @@
         myQuizCount = 0;
         myQuizAnswered = false;
 
+        // 출제 순서 셔플 (모든 단어가 한 번씩 나옴)
+        myQuizOrder = [];
+        for (var i = 0; i < myVocabWords.length; i++) myQuizOrder.push(i);
+        for (var i = myQuizOrder.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var temp = myQuizOrder[i]; myQuizOrder[i] = myQuizOrder[j]; myQuizOrder[j] = temp;
+        }
+        myQuizIndex = 0;
+
         window.showMyQuiz();
     };
 
@@ -2163,14 +2205,26 @@
         myQuizAnswered = false;
         myQuizCount++;
 
+        // 모든 단어 출제 완료 → 다시 셔플
+        if (myQuizIndex >= myQuizOrder.length) {
+            myQuizIndex = 0;
+            for (var i = myQuizOrder.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                var temp = myQuizOrder[i]; myQuizOrder[i] = myQuizOrder[j]; myQuizOrder[j] = temp;
+            }
+        }
+
         quizArea.innerHTML = '<div style="text-align: center; padding: 60px 20px;"><div style="font-size: 36px; margin-bottom: 12px;">⏳</div><div style="color: #667eea; font-weight: bold;">문제 생성 중...</div></div>';
 
         try {
-            // 랜덤 단어 선택
-            var randomIndex = Math.floor(Math.random() * myVocabWords.length);
-            var targetWord = myVocabWords[randomIndex];
+            // 순서대로 단어 선택 (셔플된 순서)
+            var targetWord = myVocabWords[myQuizOrder[myQuizIndex]];
+            myQuizIndex++;
+
             var word = targetWord.word || '';
-            var meaning = targetWord.meaning || '';
+            var rawMeaning = targetWord.meaning || '';
+            var pos = targetWord.part_of_speech || window.extractPOS(rawMeaning);
+            var meaning = window.stripPOS(rawMeaning);  // 품사 제거된 뜻
 
             // 오답 4개 생성 (서버 API 호출)
             var distRes = await fetch(window.API_URL + '/api/vocabulary/quiz-distractors', {
@@ -2183,7 +2237,7 @@
                     word: word,
                     meaning: meaning,
                     questionType: 'en_to_ko',
-                    partOfSpeech: targetWord.part_of_speech || 'noun',
+                    partOfSpeech: pos,
                     correctAnswer: meaning
                 }),
                 credentials: 'omit'
@@ -2194,16 +2248,20 @@
                 throw new Error('오답 생성 실패');
             }
 
+            // 오답에서도 품사 제거
+            var cleanDistractors = distData.distractors.map(function(d) {
+                return window.stripPOS(d);
+            });
+
             // 5개 선택지 구성 (정답 1 + 오답 4) → 셔플
-            var choices = [meaning].concat(distData.distractors.slice(0, 4));
-            // Fisher-Yates 셔플
+            var choices = [meaning].concat(cleanDistractors.slice(0, 4));
             for (var i = choices.length - 1; i > 0; i--) {
                 var j = Math.floor(Math.random() * (i + 1));
                 var temp = choices[i]; choices[i] = choices[j]; choices[j] = temp;
             }
             var correctIndex = choices.indexOf(meaning);
 
-            // HTML 렌더링 (수능 퀴즈와 동일한 스타일)
+            // HTML 렌더링
             var html = '';
             html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">';
             html += '<span style="color: #667eea; font-weight: bold; font-size: 15px;">📚 내 단어 퀴즈</span>';
@@ -2223,9 +2281,10 @@
             html += '<div id="my-quiz-options">';
             var labels = ['①', '②', '③', '④', '⑤'];
             for (var i = 0; i < choices.length; i++) {
+                var displayChoice = window.stripPOS(choices[i]);  // 최종 안전장치: 렌더링 시 품사 제거
                 html += '<label id="my-option-' + i + '" data-correct="' + (i === correctIndex ? 'true' : 'false') + '" style="display: block; padding: 12px 14px; margin-bottom: 8px; background: #f8f9fa; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; font-size: 14px;" onclick="window.selectMyOption(' + i + ')">';
                 html += '<input type="radio" name="my-answer" value="' + i + '" style="margin-right: 10px; accent-color: #667eea;">';
-                html += '<span>' + labels[i] + ' ' + choices[i] + '</span>';
+                html += '<span>' + labels[i] + ' ' + displayChoice + '</span>';
                 html += '</label>';
             }
             html += '</div></div>';
@@ -2396,8 +2455,7 @@
     // ========== 퀴즈 표시 ==========
     window.displayQuiz = function(quiz) {
         document.getElementById('quizWord').textContent = quiz.word;
-        document.getElementById('quizPos').textContent = quiz.part_of_speech ? 
-            '(' + quiz.part_of_speech + ')' : '';
+        document.getElementById('quizPos').textContent = '';
         
         var choicesContainer = document.getElementById('quizChoices');
         choicesContainer.innerHTML = '';
@@ -2405,7 +2463,8 @@
         quiz.choices.forEach(function(choice, index) {
             var choiceDiv = document.createElement('div');
             choiceDiv.className = 'quiz-choice';
-            choiceDiv.textContent = (index + 1) + '. ' + choice;
+            var displayChoice = window.stripPOS ? window.stripPOS(choice) : choice;
+            choiceDiv.textContent = (index + 1) + '. ' + displayChoice;
             choiceDiv.onclick = function() {
                 window.selectAnswer(index, quiz.correct_index, quiz.choices);
             };
