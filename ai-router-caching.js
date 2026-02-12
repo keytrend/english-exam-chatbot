@@ -119,7 +119,7 @@ async function askComplex(question, context) {
     
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-5-20250929",
-      max_tokens: 1000,
+      max_tokens: 500,
       system: [COMPLEX_SYSTEM_PROMPT],
       messages: messages
     });
