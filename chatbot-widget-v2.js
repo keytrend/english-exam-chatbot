@@ -436,6 +436,9 @@
                 <div class="auth-toggle">
                     계정이 없으신가요? <a onclick="window.showSignupForm()">회원가입</a>
                 </div>
+                <div style="text-align: center; margin-top: 8px;">
+                    <a onclick="window.showPasswordReset()" style="color: #999; font-size: 13px; cursor: pointer; text-decoration: underline;">비밀번호를 잊으셨나요?</a>
+                </div>
             </div>
 
             <div id="signupArea" class="auth-area">
@@ -443,7 +446,7 @@
                 <p>새 계정을 만드세요</p>
                 <input type="text" id="signupName" placeholder="이름" />
                 <input type="email" id="signupEmail" placeholder="이메일" />
-                <input type="password" id="signupPassword" placeholder="비밀번호 (최소 6자)" />
+                <input type="password" id="signupPassword" placeholder="비밀번호 (8자 이상, 영문+숫자+특수문자)" />
                 <input type="password" id="signupPasswordConfirm" placeholder="비밀번호 확인" onkeypress="if(event.key==='Enter')window.chatbotSignup()" />
                 <button onclick="window.chatbotSignup()">가입하기</button>
                 <div class="auth-toggle">
@@ -674,6 +677,129 @@
         document.getElementById('signupArea').classList.add('visible');
     };
 
+    // ========== 비밀번호 찾기 (3단계 흐름) ==========
+    window.resetEmail = '';
+    window.resetCode = '';
+
+    window.showPasswordReset = function() {
+        // 1단계: 이메일 입력
+        var email = prompt('비밀번호 재설정\n\n가입 시 사용한 이메일 주소를 입력하세요:', '');
+        if (!email || !email.trim()) return;
+        
+        var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email.trim())) {
+            alert('⚠️ 올바른 이메일 형식이 아닙니다.');
+            return;
+        }
+        
+        window.resetEmail = email.trim();
+        
+        // 서버에 인증코드 발송 요청
+        fetch(window.API_URL + '/api/auth/reset-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: window.resetEmail }),
+            credentials: 'omit'
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.success) {
+                alert('✅ 인증코드가 이메일로 발송되었습니다.\n\n이메일을 확인한 후, 다음 단계에서 인증코드를 입력하세요.');
+                // 2단계: 인증코드 입력
+                window.showResetCodeInput();
+            } else {
+                alert('⚠️ ' + (data.message || '인증코드 발송 실패'));
+            }
+        })
+        .catch(function() {
+            alert('⚠️ 서버 연결 실패. 잠시 후 다시 시도해주세요.');
+        });
+    };
+
+    window.showResetCodeInput = function() {
+        var code = prompt('인증코드 입력\n\n이메일로 받은 6자리 인증코드를 입력하세요:\n(' + window.resetEmail + ')', '');
+        if (!code || !code.trim()) return;
+        
+        // 서버에 인증코드 검증 요청
+        fetch(window.API_URL + '/api/auth/verify-reset-code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: window.resetEmail, code: code.trim() }),
+            credentials: 'omit'
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.success) {
+                window.resetCode = code.trim();
+                // 3단계: 새 비밀번호 입력
+                window.showNewPasswordInput();
+            } else {
+                alert('⚠️ ' + (data.message || '인증코드가 올바르지 않습니다.'));
+                // 다시 시도 가능
+                if (confirm('다시 시도하시겠습니까?')) {
+                    window.showResetCodeInput();
+                }
+            }
+        })
+        .catch(function() {
+            alert('⚠️ 서버 연결 실패');
+        });
+    };
+
+    window.showNewPasswordInput = function() {
+        var newPassword = prompt('새 비밀번호 설정\n\n조건: 8자 이상, 영문 + 숫자 + 특수문자 포함\n\n새 비밀번호를 입력하세요:', '');
+        if (!newPassword) return;
+        
+        // 비밀번호 강도 검사
+        if (newPassword.length < 8) {
+            alert('⚠️ 비밀번호는 최소 8자 이상이어야 합니다.');
+            return window.showNewPasswordInput();
+        }
+        if (!/[a-zA-Z]/.test(newPassword)) {
+            alert('⚠️ 비밀번호에 영문 알파벳을 포함해주세요.');
+            return window.showNewPasswordInput();
+        }
+        if (!/[0-9]/.test(newPassword)) {
+            alert('⚠️ 비밀번호에 숫자를 포함해주세요.');
+            return window.showNewPasswordInput();
+        }
+        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(newPassword)) {
+            alert('⚠️ 비밀번호에 특수문자를 포함해주세요.');
+            return window.showNewPasswordInput();
+        }
+        
+        var confirmPassword = prompt('비밀번호 확인\n\n새 비밀번호를 한 번 더 입력하세요:', '');
+        if (newPassword !== confirmPassword) {
+            alert('⚠️ 비밀번호가 일치하지 않습니다.');
+            return window.showNewPasswordInput();
+        }
+        
+        // 서버에 비밀번호 변경 요청
+        fetch(window.API_URL + '/api/auth/reset-password/confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                email: window.resetEmail, 
+                code: window.resetCode, 
+                newPassword: newPassword 
+            }),
+            credentials: 'omit'
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.success) {
+                alert('✅ 비밀번호가 변경되었습니다!\n\n새 비밀번호로 로그인하세요.');
+                window.resetEmail = '';
+                window.resetCode = '';
+            } else {
+                alert('⚠️ ' + (data.message || '비밀번호 변경 실패'));
+            }
+        })
+        .catch(function() {
+            alert('⚠️ 서버 연결 실패');
+        });
+    };
+
     // 로그인/가입 입력 필드에 타이핑 시작 시 플래그 설정
     setTimeout(function() {
         var authInputs = document.querySelectorAll('#loginArea input, #signupArea input');
@@ -698,17 +824,27 @@
             return window.showError('모든 항목을 입력해주세요.');
         }
 
-        if (password.length < 6) {
-            return window.showError('비밀번호는 최소 6자 이상이어야 합니다.');
+        var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return window.showError('올바른 이메일 형식이 아닙니다.');
+        }
+
+        // 비밀번호 강도 검사: 8자 이상 + 알파벳 + 숫자 + 특수문자
+        if (password.length < 8) {
+            return window.showError('비밀번호는 최소 8자 이상이어야 합니다.');
+        }
+        if (!/[a-zA-Z]/.test(password)) {
+            return window.showError('비밀번호에 영문 알파벳을 포함해주세요.');
+        }
+        if (!/[0-9]/.test(password)) {
+            return window.showError('비밀번호에 숫자를 포함해주세요.');
+        }
+        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(password)) {
+            return window.showError('비밀번호에 특수문자를 포함해주세요.\n예: !@#$%^&*');
         }
 
         if (password !== passwordConfirm) {
             return window.showError('비밀번호가 일치하지 않습니다.');
-        }
-
-        var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            return window.showError('올바른 이메일 형식이 아닙니다.');
         }
 
         try {
@@ -747,7 +883,12 @@
                 document.getElementById('signupPassword').value = '';
                 document.getElementById('signupPasswordConfirm').value = '';
             } else {
-                window.showError(data.message || '회원가입 실패');
+                // 서버 에러 메시지를 구체적으로 표시
+                var errMsg = '회원가입 실패';
+                if (data.message) {
+                    errMsg += '\n\n' + data.message;
+                }
+                window.showError(errMsg);
             }
         } catch(e) {
             window.showError('서버 연결 실패');
