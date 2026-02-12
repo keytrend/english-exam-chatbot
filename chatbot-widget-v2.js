@@ -1,4 +1,4 @@
- (function() {
+(function() {
     'use strict';
 
     // ========== CSS 삽입 ==========
@@ -633,25 +633,59 @@
     window.userInteractingWithAuth = false; // 사용자가 로그인/가입 폼 조작 중인지
 
     // ========== 유틸리티 함수 ==========
+    // HTML 태그 제거 및 텍스트 정리 유틸리티
+    window.cleanHtmlToText = function(html) {
+        // 임시 div에 HTML 삽입 후 textContent로 추출
+        var temp = document.createElement('div');
+        temp.innerHTML = html;
+        // script, style 태그 제거
+        var scripts = temp.querySelectorAll('script, style, noscript');
+        for (var i = 0; i < scripts.length; i++) scripts[i].remove();
+        // textContent로 순수 텍스트 추출
+        var text = temp.textContent || temp.innerText || '';
+        // HTML 엔티티 디코딩 (&amp; &lt; 등)
+        text = text.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+        // 연속 공백/줄바꿈 정리
+        text = text.replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim();
+        return text;
+    };
+
     window.getPageContext = function() {
-        // 1. Thinkific 콘텐츠 영역 우선 탐색
-        var contentEl = document.querySelector('.lesson-content') 
-            || document.querySelector('.fr-view')
-            || document.querySelector('.course-player__content-area')
-            || document.querySelector('[data-testid="lesson-content"]')
-            || document.querySelector('.lesson-content__body');
-        
         var pageText = '';
+        
+        // 1. Thinkific 콘텐츠 영역 우선 탐색 (여러 셀렉터 시도)
+        var selectors = [
+            '.lesson-content .fr-view',
+            '.lesson-content',
+            '.fr-view', 
+            '.course-player__content-area',
+            '[data-testid="lesson-content"]',
+            '.lesson-content__body',
+            '.text-lesson__content',
+            'article',
+            'main'
+        ];
+        
+        var contentEl = null;
+        for (var i = 0; i < selectors.length; i++) {
+            contentEl = document.querySelector(selectors[i]);
+            if (contentEl && contentEl.innerHTML.length > 100) {
+                console.log('콘텐츠 셀렉터 매칭:', selectors[i]);
+                break;
+            }
+            contentEl = null;
+        }
+        
         if (contentEl) {
-            pageText = contentEl.innerText;
+            // innerHTML → 텍스트 변환 (HTML 태그 완전 제거)
+            pageText = window.cleanHtmlToText(contentEl.innerHTML);
         } else {
-            // 2. 폴백: body 전체에서 챗봇 위젯 제외
-            var clone = document.body.cloneNode(true);
-            var chatWidget = clone.querySelector('#chatbot-container');
-            if (chatWidget) chatWidget.remove();
-            var chatToggle = clone.querySelector('#chatbot-toggle-btn');
-            if (chatToggle) chatToggle.remove();
-            pageText = clone.innerText;
+            // 2. 폴백: body 전체 (챗봇 위젯 제외)
+            var bodyHtml = document.body.innerHTML;
+            // 챗봇 컨테이너 HTML 제거
+            bodyHtml = bodyHtml.replace(/<div id="chatbot-container"[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/gi, '');
+            bodyHtml = bodyHtml.replace(/<button id="chatbot-toggle-btn"[\s\S]*?<\/button>/gi, '');
+            pageText = window.cleanHtmlToText(bodyHtml);
         }
         
         if (!pageText || pageText.trim().length < 50) {
@@ -662,12 +696,10 @@
         // 3. 너무 긴 경우 앞부분(문제+지문)과 해설 부분을 합쳐서 전달
         var maxLength = 4000;
         if (pageText.length > maxLength) {
-            // 해설 시작점 찾기
             var answerIndex = pageText.indexOf('정답:');
             if (answerIndex === -1) answerIndex = pageText.indexOf('[프리미엄 문제 분석]');
             
             if (answerIndex !== -1 && answerIndex > 2000) {
-                // 문제/지문 부분 (앞 2000자) + 해설 부분 (뒤 2000자)
                 var frontPart = pageText.substring(0, 2000);
                 var backPart = pageText.substring(answerIndex, answerIndex + 2000);
                 pageText = frontPart + '\n\n...\n\n' + backPart;
@@ -677,6 +709,8 @@
         }
         
         console.log('페이지 콘텐츠 추출 완료:', pageText.length, '글자');
+        // 디버그: 앞 200자 출력하여 텍스트가 깨끗한지 확인
+        console.log('콘텐츠 미리보기:', pageText.substring(0, 200));
         return pageText;
     };
 
