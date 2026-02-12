@@ -1172,6 +1172,11 @@
             if (window.checkAuthError(res)) return;
             
             var data = await res.json();
+            
+            // 로딩 메시지 제거 (답변 표시 전에 제거해야 채팅 히스토리에 저장 안됨)
+            var lm = document.getElementById('loading-message');
+            if (lm) lm.remove();
+            
             if (data.answer) {
                 var responseType = (data.metadata && data.metadata.questionType) || currentType;
                 window.addMessage(data.answer, 'bot', responseType);
@@ -1183,9 +1188,9 @@
             window.showError('서버 연결 실패');
         } finally {
             document.getElementById('sendButton').disabled = false;
-            // 로딩 메시지 제거
-            var lm = document.getElementById('loading-message');
-            if (lm) lm.remove();
+            // 안전장치: 혹시 남아있으면 한번 더 제거
+            var lm2 = document.getElementById('loading-message');
+            if (lm2) lm2.remove();
         }
     };
 
@@ -2114,8 +2119,189 @@
     };
 
     // ========== 내 단어 퀴즈 ==========
-    window.startVocabQuiz = function() {
-        alert('📚 단어장에 단어를 먼저 저장해주세요!\n\n채팅에서 단어를 질문하고 저장한 후 퀴즈를 시작하세요.');
+    var myQuizScore = { correct: 0, wrong: 0 };
+    var myQuizCount = 0;
+    var myQuizAnswered = false;
+    var myVocabWords = [];
+
+    window.startVocabQuiz = async function() {
+        // 1. 단어장에서 단어 목록 가져오기
+        try {
+            var res = await fetch(window.API_URL + '/api/vocabulary/list', {
+                headers: { 'Authorization': 'Bearer ' + window.authToken },
+                credentials: 'omit'
+            });
+            var data = await res.json();
+            if (!data.words || data.words.length === 0) {
+                alert('📚 단어장에 단어를 먼저 저장해주세요!\n\n채팅에서 단어를 질문하고 저장한 후 퀴즈를 시작하세요.');
+                return;
+            }
+            myVocabWords = data.words;
+        } catch(e) {
+            alert('❌ 단어장 로드 실패');
+            return;
+        }
+
+        // UI 전환
+        document.getElementById('vocabularyList').style.display = 'none';
+        document.getElementById('vocabEmpty').style.display = 'none';
+        var searchEl = document.getElementById('vocabSearch');
+        if (searchEl) searchEl.style.display = 'none';
+        document.getElementById('quiz-start-btn').style.display = 'none';
+        document.getElementById('public-quiz-start-btn').style.display = 'none';
+        document.getElementById('quiz-area').style.display = 'block';
+
+        myQuizScore = { correct: 0, wrong: 0 };
+        myQuizCount = 0;
+        myQuizAnswered = false;
+
+        window.showMyQuiz();
+    };
+
+    window.showMyQuiz = async function() {
+        var quizArea = document.getElementById('quiz-area');
+        myQuizAnswered = false;
+        myQuizCount++;
+
+        quizArea.innerHTML = '<div style="text-align: center; padding: 60px 20px;"><div style="font-size: 36px; margin-bottom: 12px;">⏳</div><div style="color: #667eea; font-weight: bold;">문제 생성 중...</div></div>';
+
+        try {
+            // 랜덤 단어 선택
+            var randomIndex = Math.floor(Math.random() * myVocabWords.length);
+            var targetWord = myVocabWords[randomIndex];
+            var word = targetWord.word || '';
+            var meaning = targetWord.meaning || '';
+
+            // 오답 4개 생성 (서버 API 호출)
+            var distRes = await fetch(window.API_URL + '/api/vocabulary/quiz-distractors', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + window.authToken
+                },
+                body: JSON.stringify({
+                    word: word,
+                    meaning: meaning,
+                    questionType: 'en_to_ko',
+                    partOfSpeech: targetWord.part_of_speech || 'noun',
+                    correctAnswer: meaning
+                }),
+                credentials: 'omit'
+            });
+            var distData = await distRes.json();
+
+            if (!distData.success || !distData.distractors || distData.distractors.length < 4) {
+                throw new Error('오답 생성 실패');
+            }
+
+            // 5개 선택지 구성 (정답 1 + 오답 4) → 셔플
+            var choices = [meaning].concat(distData.distractors.slice(0, 4));
+            // Fisher-Yates 셔플
+            for (var i = choices.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                var temp = choices[i]; choices[i] = choices[j]; choices[j] = temp;
+            }
+            var correctIndex = choices.indexOf(meaning);
+
+            // HTML 렌더링 (수능 퀴즈와 동일한 스타일)
+            var html = '';
+            html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">';
+            html += '<span style="color: #667eea; font-weight: bold; font-size: 15px;">📚 내 단어 퀴즈</span>';
+            html += '<div>';
+            html += '<span style="color: #999; font-size: 13px;">' + myQuizCount + '번째</span>';
+            html += '<span style="color: #28a745; font-size: 13px; margin-left: 10px;">✅' + myQuizScore.correct + '</span>';
+            html += '<span style="color: #dc3545; font-size: 13px; margin-left: 6px;">❌' + myQuizScore.wrong + '</span>';
+            html += '</div></div>';
+
+            html += '<div style="background: white; padding: 24px 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">';
+            html += '<div style="text-align: center; margin-bottom: 6px; font-size: 12px; color: #999;">다음 영어 단어의 뜻은?</div>';
+            html += '<div style="text-align: center; font-size: 24px; font-weight: bold; color: #333; margin-bottom: 4px;">' + word + '</div>';
+            html += '<div style="text-align: center; margin-bottom: 20px;">';
+            html += '<button onclick="window.speakWord(\'' + word.replace(/'/g, "\\'") + '\')" style="padding: 4px 10px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">🔊 발음</button>';
+            html += '</div>';
+
+            html += '<div id="my-quiz-options">';
+            var labels = ['①', '②', '③', '④', '⑤'];
+            for (var i = 0; i < choices.length; i++) {
+                html += '<label id="my-option-' + i + '" data-correct="' + (i === correctIndex ? 'true' : 'false') + '" style="display: block; padding: 12px 14px; margin-bottom: 8px; background: #f8f9fa; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; font-size: 14px;" onclick="window.selectMyOption(' + i + ')">';
+                html += '<input type="radio" name="my-answer" value="' + i + '" style="margin-right: 10px; accent-color: #667eea;">';
+                html += '<span>' + labels[i] + ' ' + choices[i] + '</span>';
+                html += '</label>';
+            }
+            html += '</div></div>';
+
+            html += '<div style="margin-top: 14px; display: flex; gap: 10px;">';
+            html += '<button onclick="window.exitMyQuiz()" style="flex: 1; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px;">🚪 나가기</button>';
+            html += '<button id="my-check-btn" onclick="window.checkMyAnswer()" style="flex: 2; padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; opacity: 0.5;" disabled>✔️ 정답 확인</button>';
+            html += '<button id="my-next-btn" onclick="window.showMyQuiz()" style="flex: 2; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; display: none;">➡️ 다음 문제</button>';
+            html += '</div>';
+
+            quizArea.innerHTML = html;
+
+        } catch(e) {
+            console.error('내 단어 퀴즈 로드 실패:', e);
+            quizArea.innerHTML = '<div style="text-align: center; padding: 40px;"><div style="color: #dc3545; margin-bottom: 16px;">❌ 문제 생성 실패</div><button onclick="window.showMyQuiz()" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer;">다시 시도</button> <button onclick="window.exitMyQuiz()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; margin-left: 8px;">나가기</button></div>';
+        }
+    };
+
+    window.selectMyOption = function(index) {
+        if (myQuizAnswered) return;
+        for (var i = 0; i < 5; i++) {
+            var label = document.getElementById('my-option-' + i);
+            if (label) { label.style.border = '2px solid #e0e0e0'; label.style.background = '#f8f9fa'; }
+        }
+        var selected = document.getElementById('my-option-' + index);
+        if (selected) {
+            selected.style.border = '2px solid #667eea';
+            selected.style.background = '#f0f3ff';
+            var radio = selected.querySelector('input[type="radio"]');
+            if (radio) radio.checked = true;
+        }
+        var checkBtn = document.getElementById('my-check-btn');
+        if (checkBtn) { checkBtn.disabled = false; checkBtn.style.opacity = '1'; }
+    };
+
+    window.checkMyAnswer = function() {
+        if (myQuizAnswered) return;
+        var selectedRadio = document.querySelector('input[name="my-answer"]:checked');
+        if (!selectedRadio) { alert('보기를 선택해주세요!'); return; }
+
+        myQuizAnswered = true;
+        var selectedIndex = parseInt(selectedRadio.value);
+
+        for (var i = 0; i < 5; i++) {
+            var label = document.getElementById('my-option-' + i);
+            if (!label) continue;
+            label.style.cursor = 'default';
+            label.onclick = null;
+            var isCorrect = label.getAttribute('data-correct') === 'true';
+            if (isCorrect) {
+                label.style.border = '2px solid #28a745'; label.style.background = '#d4edda';
+                label.querySelector('span').innerHTML += ' ✅';
+            } else if (i === selectedIndex) {
+                label.style.border = '2px solid #dc3545'; label.style.background = '#f8d7da';
+                label.querySelector('span').innerHTML += ' ❌';
+            } else { label.style.opacity = '0.5'; }
+        }
+
+        var selectedLabel = document.getElementById('my-option-' + selectedIndex);
+        if (selectedLabel && selectedLabel.getAttribute('data-correct') === 'true') {
+            myQuizScore.correct++;
+        } else {
+            myQuizScore.wrong++;
+        }
+
+        document.getElementById('my-check-btn').style.display = 'none';
+        document.getElementById('my-next-btn').style.display = 'block';
+    };
+
+    window.exitMyQuiz = function() {
+        document.getElementById('quiz-area').style.display = 'none';
+        document.getElementById('vocabularyList').style.display = 'flex';
+        var searchEl = document.getElementById('vocabSearch');
+        if (searchEl) searchEl.style.display = 'block';
+        document.getElementById('quiz-start-btn').style.display = 'block';
+        document.getElementById('public-quiz-start-btn').style.display = 'block';
     };
 
     // ========== 챗봇 상태 복원 ==========
