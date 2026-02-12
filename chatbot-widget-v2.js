@@ -653,7 +653,7 @@
     window.getPageContext = function() {
         var pageText = '';
         
-        // 1. Thinkific 콘텐츠 영역 우선 탐색 (여러 셀렉터 시도)
+        // 1. Thinkific 콘텐츠 영역 탐색 (챗봇 내부 요소 제외)
         var selectors = [
             '.lesson-content .fr-view',
             '.lesson-content',
@@ -668,24 +668,41 @@
         
         var contentEl = null;
         for (var i = 0; i < selectors.length; i++) {
-            contentEl = document.querySelector(selectors[i]);
-            if (contentEl && contentEl.innerHTML.length > 100) {
-                console.log('콘텐츠 셀렉터 매칭:', selectors[i]);
-                break;
+            var candidates = document.querySelectorAll(selectors[i]);
+            for (var j = 0; j < candidates.length; j++) {
+                var el = candidates[j];
+                // 챗봇 내부 요소는 무시
+                if (el.closest('#chatbot-container')) continue;
+                if (el.innerHTML.length > 100) {
+                    contentEl = el;
+                    console.log('콘텐츠 셀렉터 매칭:', selectors[i]);
+                    break;
+                }
             }
-            contentEl = null;
+            if (contentEl) break;
         }
         
         if (contentEl) {
-            // innerHTML → 텍스트 변환 (HTML 태그 완전 제거)
             pageText = window.cleanHtmlToText(contentEl.innerHTML);
         } else {
             // 2. 폴백: body 전체 (챗봇 위젯 제외)
             var bodyHtml = document.body.innerHTML;
-            // 챗봇 컨테이너 HTML 제거
             bodyHtml = bodyHtml.replace(/<div id="chatbot-container"[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/gi, '');
             bodyHtml = bodyHtml.replace(/<button id="chatbot-toggle-btn"[\s\S]*?<\/button>/gi, '');
             pageText = window.cleanHtmlToText(bodyHtml);
+        }
+        
+        // 챗봇 내용이 섞여있는지 검증
+        if (pageText.indexOf('Key Trend') === 0 || pageText.indexOf('로그인하여 시작') !== -1) {
+            console.log('경고: 챗봇 내용이 추출됨, 폴백 실행');
+            // 챗봇 제외하고 다시 추출
+            var clone = document.body.cloneNode(true);
+            var widget = clone.querySelector('#chatbot-container');
+            if (widget) widget.remove();
+            var toggle = clone.querySelector('#chatbot-toggle-btn');
+            if (toggle) toggle.remove();
+            pageText = clone.textContent || clone.innerText || '';
+            pageText = pageText.replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim();
         }
         
         if (!pageText || pageText.trim().length < 50) {
@@ -693,7 +710,7 @@
             return '';
         }
         
-        // 3. 너무 긴 경우 앞부분(문제+지문)과 해설 부분을 합쳐서 전달
+        // 3. 길이 제한
         var maxLength = 4000;
         if (pageText.length > maxLength) {
             var answerIndex = pageText.indexOf('정답:');
@@ -709,7 +726,6 @@
         }
         
         console.log('페이지 콘텐츠 추출 완료:', pageText.length, '글자');
-        // 디버그: 앞 200자 출력하여 텍스트가 깨끗한지 확인
         console.log('콘텐츠 미리보기:', pageText.substring(0, 200));
         return pageText;
     };
