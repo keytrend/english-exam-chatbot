@@ -179,22 +179,23 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
     try {
         const { question, questionType, page_id, page_context } = req.body;
         
-        // ========== 해설 가져오기: 캐시 → 클라이언트 전송 순서 ==========
+        // ========== 해설 가져오기: 클라이언트 전송 우선 → 캐시 폴백 ==========
         let context = '';
-        if (page_id) {
+        // 1. 클라이언트가 보낸 최신 page_context 우선 사용
+        if (page_context && page_context.trim().length > 50) {
+            context = page_context;
+            console.log(`클라이언트 컨텍스트 사용: ${context.length} 글자`);
+            // 캐시도 최신으로 업데이트
+            if (page_id) {
+                contextCache.set(page_id, { context: context, timestamp: Date.now() });
+            }
+        }
+        // 2. 클라이언트 컨텍스트 없으면 캐시 사용
+        else if (page_id) {
             const cached = contextCache.get(page_id);
             if (cached) {
                 context = cached.context;
                 console.log(`캐시 사용: ${page_id} (${context.length} 글자)`);
-            }
-        }
-        // 캐시에 없으면 클라이언트가 보낸 page_context 사용
-        if (!context && page_context) {
-            context = page_context;
-            console.log(`클라이언트 컨텍스트 사용: ${context.length} 글자`);
-            // 다음 요청을 위해 캐시에도 저장
-            if (page_id) {
-                contextCache.set(page_id, { context: context, timestamp: Date.now() });
             }
         }
         // ==========================================
