@@ -634,18 +634,50 @@
 
     // ========== 유틸리티 함수 ==========
     window.getPageContext = function() {
-        var allText = document.body.innerText;
-        var startIndex = allText.indexOf('정답:');
-        if (startIndex === -1) {
-            startIndex = allText.indexOf('[프리미엄 문제 분석]');
+        // 1. Thinkific 콘텐츠 영역 우선 탐색
+        var contentEl = document.querySelector('.lesson-content') 
+            || document.querySelector('.fr-view')
+            || document.querySelector('.course-player__content-area')
+            || document.querySelector('[data-testid="lesson-content"]')
+            || document.querySelector('.lesson-content__body');
+        
+        var pageText = '';
+        if (contentEl) {
+            pageText = contentEl.innerText;
+        } else {
+            // 2. 폴백: body 전체에서 챗봇 위젯 제외
+            var clone = document.body.cloneNode(true);
+            var chatWidget = clone.querySelector('#chatbot-container');
+            if (chatWidget) chatWidget.remove();
+            var chatToggle = clone.querySelector('#chatbot-toggle-btn');
+            if (chatToggle) chatToggle.remove();
+            pageText = clone.innerText;
         }
-        if (startIndex !== -1) {
-            var context = allText.substring(startIndex);
-            console.log('해설 추출 완료:', context.length, '글자');
-            return context;
+        
+        if (!pageText || pageText.trim().length < 50) {
+            console.log('페이지 콘텐츠를 찾을 수 없습니다');
+            return '';
         }
-        console.log('해설을 찾을 수 없습니다');
-        return '';
+        
+        // 3. 너무 긴 경우 앞부분(문제+지문)과 해설 부분을 합쳐서 전달
+        var maxLength = 4000;
+        if (pageText.length > maxLength) {
+            // 해설 시작점 찾기
+            var answerIndex = pageText.indexOf('정답:');
+            if (answerIndex === -1) answerIndex = pageText.indexOf('[프리미엄 문제 분석]');
+            
+            if (answerIndex !== -1 && answerIndex > 2000) {
+                // 문제/지문 부분 (앞 2000자) + 해설 부분 (뒤 2000자)
+                var frontPart = pageText.substring(0, 2000);
+                var backPart = pageText.substring(answerIndex, answerIndex + 2000);
+                pageText = frontPart + '\n\n...\n\n' + backPart;
+            } else {
+                pageText = pageText.substring(0, maxLength);
+            }
+        }
+        
+        console.log('페이지 콘텐츠 추출 완료:', pageText.length, '글자');
+        return pageText;
     };
 
     window.getPageId = function() {
