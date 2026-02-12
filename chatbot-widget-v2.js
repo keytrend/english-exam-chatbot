@@ -149,6 +149,12 @@
         #loginArea.hidden { display: none; }
         #signupArea { display: none; }
         #signupArea.visible { display: flex; }
+        #resetPasswordArea { display: none; }
+        #resetPasswordArea.visible { display: flex; }
+        .reset-step { display: none; width: 100%; max-width: 360px; }
+        .reset-step.active { display: block; }
+        .reset-error { color: #e53935; font-size: 13px; margin-top: 8px; min-height: 18px; }
+        .reset-info { color: #667eea; font-size: 13px; margin: 8px 0; background: #f0f3ff; padding: 10px; border-radius: 8px; }
 
         /* ===== 헤더 (고정) ===== */
         .chatbot-header {
@@ -454,6 +460,43 @@
                 </div>
             </div>
 
+            <div id="resetPasswordArea" class="auth-area">
+                <h2>🔐 비밀번호 재설정</h2>
+                
+                <!-- Step 1: 이메일 입력 -->
+                <div id="resetStep1" class="reset-step active">
+                    <p>가입 시 사용한 이메일 주소를 입력하세요</p>
+                    <input type="email" id="resetEmail" placeholder="이메일 주소" onkeypress="if(event.key==='Enter')window.sendResetCode()" />
+                    <div id="resetError1" class="reset-error"></div>
+                    <button onclick="window.sendResetCode()">인증코드 발송</button>
+                </div>
+                
+                <!-- Step 2: 인증코드 입력 -->
+                <div id="resetStep2" class="reset-step">
+                    <div class="reset-info" id="resetEmailInfo"></div>
+                    <p>이메일로 받은 6자리 인증코드를 입력하세요</p>
+                    <input type="text" id="resetCode" placeholder="6자리 인증코드" maxlength="6" style="text-align: center; font-size: 24px; letter-spacing: 8px;" onkeypress="if(event.key==='Enter')window.verifyResetCode()" />
+                    <div id="resetError2" class="reset-error"></div>
+                    <button onclick="window.verifyResetCode()">인증코드 확인</button>
+                    <div style="margin-top: 12px;">
+                        <a onclick="window.sendResetCode()" style="color: #667eea; cursor: pointer; font-size: 13px;">인증코드 재발송</a>
+                    </div>
+                </div>
+                
+                <!-- Step 3: 새 비밀번호 입력 -->
+                <div id="resetStep3" class="reset-step">
+                    <p>새 비밀번호를 설정하세요</p>
+                    <input type="password" id="newPassword" placeholder="새 비밀번호 (8자 이상, 영문+숫자+특수문자)" />
+                    <input type="password" id="newPasswordConfirm" placeholder="새 비밀번호 확인" onkeypress="if(event.key==='Enter')window.confirmResetPassword()" />
+                    <div id="resetError3" class="reset-error"></div>
+                    <button onclick="window.confirmResetPassword()">비밀번호 변경</button>
+                </div>
+                
+                <div class="auth-toggle">
+                    <a onclick="window.backToLogin()">← 로그인으로 돌아가기</a>
+                </div>
+            </div>
+
             <div id="chatArea">
                 <div class="chatbot-header">
                     <h1>🎓 Key Trend</h1>
@@ -668,6 +711,7 @@
     // ========== 폼 전환 ==========
     window.showLoginForm = function() {
         document.getElementById('signupArea').classList.remove('visible');
+        document.getElementById('resetPasswordArea').classList.remove('visible');
         document.getElementById('loginArea').classList.remove('hidden');
     };
 
@@ -677,111 +721,147 @@
         document.getElementById('signupArea').classList.add('visible');
     };
 
-    // ========== 비밀번호 찾기 (3단계 흐름) ==========
+    // ========== 비밀번호 재설정 (위젯 내부 폼) ==========
     window.resetEmail = '';
     window.resetCode = '';
 
     window.showPasswordReset = function() {
-        // 1단계: 이메일 입력
-        var email = prompt('비밀번호 재설정\n\n가입 시 사용한 이메일 주소를 입력하세요:', '');
-        if (!email || !email.trim()) return;
+        window.userInteractingWithAuth = true;
+        document.getElementById('loginArea').classList.add('hidden');
+        document.getElementById('signupArea').classList.remove('visible');
+        document.getElementById('resetPasswordArea').classList.add('visible');
+        // Step 1만 보이기
+        document.getElementById('resetStep1').classList.add('active');
+        document.getElementById('resetStep2').classList.remove('active');
+        document.getElementById('resetStep3').classList.remove('active');
+        document.getElementById('resetEmail').value = '';
+        document.getElementById('resetError1').textContent = '';
+    };
+
+    window.backToLogin = function() {
+        document.getElementById('resetPasswordArea').classList.remove('visible');
+        document.getElementById('loginArea').classList.remove('hidden');
+        window.resetEmail = '';
+        window.resetCode = '';
+    };
+
+    // Step 1: 인증코드 발송
+    window.sendResetCode = function() {
+        var email = document.getElementById('resetEmail').value.trim();
+        var errEl = document.getElementById('resetError1');
         
+        if (!email) {
+            errEl.textContent = '이메일을 입력해주세요.';
+            return;
+        }
         var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email.trim())) {
-            alert('⚠️ 올바른 이메일 형식이 아닙니다.');
+        if (!emailRegex.test(email)) {
+            errEl.textContent = '올바른 이메일 형식이 아닙니다.';
             return;
         }
         
-        window.resetEmail = email.trim();
+        errEl.textContent = '발송 중...';
+        window.resetEmail = email;
         
-        // 서버에 인증코드 발송 요청
         fetch(window.API_URL + '/api/auth/reset-password', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: window.resetEmail }),
+            body: JSON.stringify({ email: email }),
             credentials: 'omit'
         })
         .then(function(res) { return res.json(); })
         .then(function(data) {
             if (data.success) {
-                alert('✅ 인증코드가 이메일로 발송되었습니다.\n\n이메일을 확인한 후, 다음 단계에서 인증코드를 입력하세요.');
-                // 2단계: 인증코드 입력
-                window.showResetCodeInput();
+                // Step 2로 이동
+                document.getElementById('resetStep1').classList.remove('active');
+                document.getElementById('resetStep2').classList.add('active');
+                document.getElementById('resetEmailInfo').textContent = '📧 ' + email + ' 으로 인증코드를 발송했습니다.';
+                document.getElementById('resetCode').value = '';
+                document.getElementById('resetError2').textContent = '';
+                document.getElementById('resetCode').focus();
             } else {
-                alert('⚠️ ' + (data.message || '인증코드 발송 실패'));
+                errEl.textContent = data.message || '인증코드 발송 실패';
             }
         })
         .catch(function() {
-            alert('⚠️ 서버 연결 실패. 잠시 후 다시 시도해주세요.');
+            errEl.textContent = '서버 연결 실패. 잠시 후 다시 시도해주세요.';
         });
     };
 
-    window.showResetCodeInput = function() {
-        var code = prompt('인증코드 입력\n\n이메일로 받은 6자리 인증코드를 입력하세요:\n(' + window.resetEmail + ')', '');
-        if (!code || !code.trim()) return;
+    // Step 2: 인증코드 검증
+    window.verifyResetCode = function() {
+        var code = document.getElementById('resetCode').value.trim();
+        var errEl = document.getElementById('resetError2');
         
-        // 서버에 인증코드 검증 요청
+        if (!code || code.length !== 6) {
+            errEl.textContent = '6자리 인증코드를 입력해주세요.';
+            return;
+        }
+        
+        errEl.textContent = '확인 중...';
+        
         fetch(window.API_URL + '/api/auth/verify-reset-code', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: window.resetEmail, code: code.trim() }),
+            body: JSON.stringify({ email: window.resetEmail, code: code }),
             credentials: 'omit'
         })
         .then(function(res) { return res.json(); })
         .then(function(data) {
             if (data.success) {
-                window.resetCode = code.trim();
-                // 3단계: 새 비밀번호 입력
-                window.showNewPasswordInput();
+                window.resetCode = code;
+                // Step 3로 이동
+                document.getElementById('resetStep2').classList.remove('active');
+                document.getElementById('resetStep3').classList.add('active');
+                document.getElementById('newPassword').value = '';
+                document.getElementById('newPasswordConfirm').value = '';
+                document.getElementById('resetError3').textContent = '';
+                document.getElementById('newPassword').focus();
             } else {
-                alert('⚠️ ' + (data.message || '인증코드가 올바르지 않습니다.'));
-                // 다시 시도 가능
-                if (confirm('다시 시도하시겠습니까?')) {
-                    window.showResetCodeInput();
-                }
+                errEl.textContent = data.message || '인증코드가 올바르지 않습니다.';
             }
         })
         .catch(function() {
-            alert('⚠️ 서버 연결 실패');
+            errEl.textContent = '서버 연결 실패';
         });
     };
 
-    window.showNewPasswordInput = function() {
-        var newPassword = prompt('새 비밀번호 설정\n\n조건: 8자 이상, 영문 + 숫자 + 특수문자 포함\n\n새 비밀번호를 입력하세요:', '');
-        if (!newPassword) return;
+    // Step 3: 새 비밀번호 설정
+    window.confirmResetPassword = function() {
+        var newPw = document.getElementById('newPassword').value;
+        var confirmPw = document.getElementById('newPasswordConfirm').value;
+        var errEl = document.getElementById('resetError3');
         
-        // 비밀번호 강도 검사
-        if (newPassword.length < 8) {
-            alert('⚠️ 비밀번호는 최소 8자 이상이어야 합니다.');
-            return window.showNewPasswordInput();
+        if (newPw.length < 8) {
+            errEl.textContent = '비밀번호는 최소 8자 이상이어야 합니다.';
+            return;
         }
-        if (!/[a-zA-Z]/.test(newPassword)) {
-            alert('⚠️ 비밀번호에 영문 알파벳을 포함해주세요.');
-            return window.showNewPasswordInput();
+        if (!/[a-zA-Z]/.test(newPw)) {
+            errEl.textContent = '비밀번호에 영문 알파벳을 포함해주세요.';
+            return;
         }
-        if (!/[0-9]/.test(newPassword)) {
-            alert('⚠️ 비밀번호에 숫자를 포함해주세요.');
-            return window.showNewPasswordInput();
+        if (!/[0-9]/.test(newPw)) {
+            errEl.textContent = '비밀번호에 숫자를 포함해주세요.';
+            return;
         }
-        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(newPassword)) {
-            alert('⚠️ 비밀번호에 특수문자를 포함해주세요.');
-            return window.showNewPasswordInput();
+        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(newPw)) {
+            errEl.textContent = '비밀번호에 특수문자를 포함해주세요. 예: !@#$%^&*';
+            return;
         }
-        
-        var confirmPassword = prompt('비밀번호 확인\n\n새 비밀번호를 한 번 더 입력하세요:', '');
-        if (newPassword !== confirmPassword) {
-            alert('⚠️ 비밀번호가 일치하지 않습니다.');
-            return window.showNewPasswordInput();
+        if (newPw !== confirmPw) {
+            errEl.textContent = '비밀번호가 일치하지 않습니다.';
+            return;
         }
         
-        // 서버에 비밀번호 변경 요청
+        errEl.textContent = '변경 중...';
+        
         fetch(window.API_URL + '/api/auth/reset-password/confirm', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 email: window.resetEmail, 
                 code: window.resetCode, 
-                newPassword: newPassword 
+                newPassword: newPw 
             }),
             credentials: 'omit'
         })
@@ -791,12 +871,13 @@
                 alert('✅ 비밀번호가 변경되었습니다!\n\n새 비밀번호로 로그인하세요.');
                 window.resetEmail = '';
                 window.resetCode = '';
+                window.backToLogin();
             } else {
-                alert('⚠️ ' + (data.message || '비밀번호 변경 실패'));
+                errEl.textContent = data.message || '비밀번호 변경 실패';
             }
         })
         .catch(function() {
-            alert('⚠️ 서버 연결 실패');
+            errEl.textContent = '서버 연결 실패';
         });
     };
 
