@@ -107,7 +107,7 @@ async function askComplex(question, context) {
     if (context && context.trim()) {
       messages[0].content.push({
         type: "text",
-        text: `[해설 자료]\n${context}`,
+        text: `[학생이 보고 있는 문제 페이지 전체 내용 - 지문, 선택지, 해설 포함]\n${context}`,
         cache_control: { type: "ephemeral" }
       });
     }
@@ -119,7 +119,7 @@ async function askComplex(question, context) {
     
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-5-20250929",
-      max_tokens: 500,
+      max_tokens: 1000,
       system: [COMPLEX_SYSTEM_PROMPT],
       messages: messages
     });
