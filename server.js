@@ -288,6 +288,25 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
     
 // AI에게 질문
 const startTime = Date.now();
+// ========== 무료 회원 단어 뜻 질문 100회 제한 ==========
+    if (questionType === 'simple') {
+      const { rows: simpleRows } = await pool.query(
+        'SELECT free_simple_remaining FROM users WHERE email = $1',
+        [req.user.email]
+      );
+      const freeSimpleRemaining = simpleRows[0]?.free_simple_remaining ?? 0;
+      if (freeSimpleRemaining <= 0) {
+        return res.json({
+          answer: null,
+          message: 'FREE_SIMPLE_EXHAUSTED',
+          upgradeUrl: 'https://keytrend.thinkific.com/collections'
+        });
+      }
+      await pool.query(
+        'UPDATE users SET free_simple_remaining = free_simple_remaining - 1 WHERE email = $1',
+        [req.user.email]
+      );
+    }
 // ========== 무료 회원 복잡한 질문 2회 제한 ==========
     if (questionType === 'complex') {
       const { rows: userRows } = await pool.query(
@@ -369,41 +388,25 @@ app.get('/api/usage', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     
-    // 현재 월 사용량
-    const currentUsage = await getUserUsage(userId);
+    // free remaining 조회
+    const { rows: userRows } = await pool.query(
+      'SELECT free_simple_remaining, free_complex_remaining FROM users WHERE email = $1',
+      [req.user.email]
+    );
     
-    // 최근 3개월 통계
-    const stats = await getUsageStats(userId, 3);
-    
-    const LIMITS = {
-      simple: parseInt(process.env.SIMPLE_LIMIT) || 300,
-      complex: parseInt(process.env.COMPLEX_LIMIT) || 300,
-      total: parseInt(process.env.TOTAL_LIMIT) || 600
-    };
-    
-    const totalUsed = currentUsage.simple_count + currentUsage.complex_count;
+    const freeSimple = userRows[0]?.free_simple_remaining ?? 0;
+    const freeComplex = userRows[0]?.free_complex_remaining ?? 0;
     
     res.json({
       성공: true,
       이번달: {
-        년월: currentUsage.month,
         간단한질문: {
-          사용: currentUsage.simple_count,
-          한도: LIMITS.simple,
-          남음: Math.max(0, LIMITS.simple - currentUsage.simple_count)
+          남음: freeSimple
         },
         복잡한질문: {
-          사용: currentUsage.complex_count,
-          한도: LIMITS.complex,
-          남음: Math.max(0, LIMITS.complex - currentUsage.complex_count)
-        },
-        전체: {
-          사용: totalUsed,
-          한도: LIMITS.total,
-          남음: Math.max(0, LIMITS.total - totalUsed)
+          남음: freeComplex
         }
-      },
-      최근3개월: stats
+      }
     });
     
   } catch (error) {
