@@ -1259,6 +1259,26 @@
             // 로딩 메시지 제거 (답변 표시 전에 제거해야 채팅 히스토리에 저장 안됨)
             var lm = document.getElementById('loading-message');
             if (lm) lm.remove();
+            if (data.message === 'FREE_SIMPLE_EXHAUSTED') {
+                var exhaustedSimpleHtml = '<div style="padding:8px 0;">' +
+                    '<p style="font-weight:bold;color:#e74c3c;margin-bottom:8px;">⚠️ 무료 단어 뜻 질문 100회를 모두 사용했습니다.</p>' +
+                    '<p style="margin-bottom:12px;">더 많은 질문을 하시려면 유료 플랜을 구독해 주세요.</p>' +
+                    '<a href="' + (data.upgradeUrl || 'https://keytrend.thinkific.com/collections') + '" ' +
+                    'target="_blank" style="display:inline-block;background:#667eea;color:white;' +
+                    'padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:bold;">' +
+                    '👉 유료 플랜 구독하기</a></div>';
+                var container = document.getElementById('chatMessages');
+                var msgDiv = document.createElement('div');
+                msgDiv.className = 'message bot';
+                var bubble = document.createElement('div');
+                bubble.className = 'bubble';
+                bubble.innerHTML = exhaustedSimpleHtml;
+                msgDiv.appendChild(bubble);
+                container.appendChild(msgDiv);
+                container.scrollTop = container.scrollHeight;
+                document.getElementById('sendButton').disabled = false;
+                return;
+            }
             if (data.message === 'FREE_COMPLEX_EXHAUSTED') {
                 var exhaustedHtml = '<div style="padding:8px 0;">' +
                     '<p style="font-weight:bold;color:#e74c3c;margin-bottom:8px;">⚠️ 무료 2회 사용이 끝났습니다.</p>' +
