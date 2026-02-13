@@ -110,7 +110,8 @@ function authenticateToken(req, res, next) {
   // 검증된 사용자 정보를 req에 저장
   req.user = {
     userId: verification.userId,
-    userEmail: verification.userEmail
+    userEmail: verification.userEmail,
+    email: verification.userEmail
   };
   
   next();
