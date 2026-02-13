@@ -50,7 +50,7 @@ const vocabularyRouter = require('./vocabulary');
 const quizRouter = require('./quiz');
 const savedProblemsRouter = require('./saved-problems');
 const wrongAnswersRouter = require('./wrong-answers');
-const { answerQuestion, calculateCost } = require('./ai-router-caching');
+const { answerQuestion, calculateCost, askSimpleWord } = require('./ai-router-caching');
 const authRouter = require('./auth-routes');
 const passwordResetRouter = require('./password-reset');  // ← 추가
 
@@ -175,6 +175,62 @@ app.post('/api/cache-context', authenticateToken, (req, res) => {
     }
 });
 // =========================================
+// ========== 게스트 챗봇 (랜딩 페이지용, 인증 불필요) ==========
+const guestUsage = new Map();
+const GUEST_DAILY_LIMIT = 3;
+
+setInterval(() => {
+  guestUsage.clear();
+  console.log('[Guest] Daily usage reset');
+}, 24 * 60 * 60 * 1000);
+
+function getGuestIP(req) {
+  return req.headers['x-forwarded-for']?.split(',')[0]?.trim() 
+    || req.connection?.remoteAddress 
+    || 'unknown';
+}
+
+app.post('/api/guest-chat', async (req, res) => {
+  try {
+    const ip = getGuestIP(req);
+    const { message, type } = req.body;
+
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ error: '질문을 입력해주세요.' });
+    }
+    if (type !== 'word_meaning') {
+      return res.status(400).json({ error: '무료 체험에서는 단어 뜻 질문만 가능합니다.' });
+    }
+    if (message.length > 200) {
+      return res.status(400).json({ error: '질문이 너무 깁니다.' });
+    }
+
+    const today = new Date().toDateString();
+    const key = `${ip}_${today}`;
+    const used = guestUsage.get(key) || 0;
+
+    if (used >= GUEST_DAILY_LIMIT) {
+      return res.status(429).json({ 
+        error: '오늘의 무료 체험 횟수를 모두 사용했습니다.',
+        limit: GUEST_DAILY_LIMIT,
+        used: used
+      });
+    }
+
+    console.log(`[Guest] IP: ${ip} | Used: ${used + 1}/${GUEST_DAILY_LIMIT} | Q: ${message}`);
+    const result = await askSimpleWord(message);
+    guestUsage.set(key, used + 1);
+
+    res.json({
+      reply: result.answer,
+      remaining: GUEST_DAILY_LIMIT - (used + 1)
+    });
+
+  } catch (error) {
+    console.error('[Guest] Error:', error.message);
+    res.status(500).json({ error: '일시적인 오류가 발생했습니다.' });
+  }
+});
 app.post('/api/chat', authenticateToken, async (req, res) => {
     try {
         const { question, questionType, page_id, page_context } = req.body;
