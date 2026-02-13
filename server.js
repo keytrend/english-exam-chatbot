@@ -43,7 +43,8 @@ const {
   checkUsageLimit, 
   incrementUsage,
   getUserUsage,
-  getUsageStats 
+  getUsageStats,
+  pool 
 } = require('./database');
 const vocabularyRouter = require('./vocabulary');
 const quizRouter = require('./quiz');
@@ -287,6 +288,25 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
     
 // AI에게 질문
 const startTime = Date.now();
+// ========== 무료 회원 복잡한 질문 2회 제한 ==========
+    if (questionType === 'complex') {
+      const { rows: userRows } = await pool.query(
+        'SELECT free_complex_remaining FROM users WHERE email = $1',
+        [req.user.email]
+      );
+      const freeRemaining = userRows[0]?.free_complex_remaining ?? 0;
+      if (freeRemaining <= 0) {
+        return res.json({
+          answer: null,
+          message: 'FREE_COMPLEX_EXHAUSTED',
+          upgradeUrl: 'https://keytrend.thinkific.com/collections'
+        });
+      }
+      await pool.query(
+        'UPDATE users SET free_complex_remaining = free_complex_remaining - 1 WHERE email = $1',
+        [req.user.email]
+      );
+    }
 const result = await answerQuestion(question, context, questionType);  // ← questionType 추가
 const responseTime = Date.now() - startTime;
     
