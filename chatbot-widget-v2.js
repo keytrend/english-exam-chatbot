@@ -501,6 +501,7 @@
             <div id="chatArea">
                 <div class="chatbot-header">
                     <h1>🎓 Key Trend</h1>
+                    <div id="userEmailDisplay" style="font-size: 12px; opacity: 0.7; margin: 6px 0;"></div>
                     <div class="usage-info" id="usageInfo">남은 질문 횟수(단어 뜻: -, 복잡한 질문: -)</div>
                     <button onclick="window.toggleChatbot()" style="position: absolute; top: 14px; left: 16px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); padding: 4px 10px; border-radius: 12px; font-size: 12px; cursor: pointer;">✕ 닫기</button>
                     <button class="logout-btn" onclick="window.chatbotLogout()">로그아웃</button>
@@ -1035,6 +1036,7 @@
                 window.userInteractingWithAuth = false;
                 window.authToken = data.token;
                 localStorage.setItem('authToken', window.authToken);
+                localStorage.setItem('userEmail', email);
                 
                 if (window.pendingContext) {
                     window.cacheContext(window.pendingContext.page_id, window.pendingContext.context);
@@ -1091,6 +1093,7 @@
                 window.userInteractingWithAuth = false;
                 window.authToken = data.token;
                 localStorage.setItem('authToken', window.authToken);
+                localStorage.setItem('userEmail', email);
                 
                 if (window.pendingContext) {
                     window.cacheContext(window.pendingContext.page_id, window.pendingContext.context);
@@ -1112,6 +1115,7 @@
     // ========== 로그아웃 ==========
     window.chatbotLogout = function() {
         localStorage.removeItem('authToken');
+        localStorage.removeItem('userEmail');
         window.authToken = null;
         document.getElementById('chatArea').classList.remove('visible');
         document.getElementById('loginArea').classList.remove('hidden');
@@ -1135,6 +1139,8 @@
         document.getElementById('loginArea').classList.add('hidden');
         document.getElementById('signupArea').classList.remove('visible');
         document.getElementById('chatArea').classList.add('visible');
+        var emailEl = document.getElementById('userEmailDisplay');
+        if (emailEl) emailEl.textContent = localStorage.getItem('userEmail') || '';
         
         // 채팅 기록 복원 (30일 보존)
         window.loadChatHistory();
