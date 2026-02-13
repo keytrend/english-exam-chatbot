@@ -771,7 +771,8 @@
                 }
             }
             
-            localStorage.removeItem('authToken');
+            // 서버가 spin down 상태일 수 있으므로 토큰을 바로 삭제하지 않음
+            console.log('[AutoLogin] 토큰 검증 실패, 재시도 대기');
             return false;
         } catch(e) {
             console.error('자동 로그인 실패:', e);
@@ -1140,9 +1141,9 @@
         
         // 탭 카운트 로드
         setTimeout(function() {
-            window.loadVocabularyList();
-            window.loadSavedProblemsList();
-            window.loadWrongAnswersList();
+            try { window.loadVocabularyList(); } catch(e) { console.log('vocab load skip'); }
+            try { window.loadSavedProblemsList(); } catch(e) { console.log('problems load skip'); }
+            try { window.loadWrongAnswersList(); } catch(e) { console.log('wrong load skip'); }
         }, 500);
     };
 
