@@ -450,11 +450,45 @@ app.post('/api/vocabulary/quiz-distractors', authenticateToken, async (req, res)
         });
         
         const text = response.content[0].text.trim();
-        const jsonMatch = text.match(/\[[\s\S]*\]/);
-        if (!jsonMatch) {
-            throw new Error('JSON 파싱 실패: ' + text);
+
+        // JSON 배열 추출 (여러 방법 시도)
+        let distractors;
+        try {
+            // 1차: 전체 텍스트가 JSON인 경우
+            distractors = JSON.parse(text);
+        } catch(e1) {
+            try {
+                // 2차: 비탐욕적 매칭으로 첫 번째 JSON 배열만 추출
+                const jsonMatch = text.match(/\[.*?\]/s);
+                if (!jsonMatch) throw new Error('no match');
+                distractors = JSON.parse(jsonMatch[0]);
+            } catch(e2) {
+                try {
+                    // 3차: 줄바꿈 포함 JSON 배열 추출
+                    const lines = text.split('\n');
+                    let jsonStr = '';
+                    let inside = false;
+                    for (const line of lines) {
+                        if (line.includes('[')) inside = true;
+                        if (inside) jsonStr += line;
+                        if (line.includes(']') && inside) break;
+                    }
+                    distractors = JSON.parse(jsonStr);
+                } catch(e3) {
+                    // 4차: 따옴표 안의 한국어/영어 텍스트 직접 추출
+                    const items = text.match(/["']([^"']+)["']/g);
+                    if (items && items.length >= 4) {
+                        distractors = items.map(i => i.replace(/["']/g, ''));
+                    } else {
+                        throw new Error('JSON 파싱 실패: ' + text);
+                    }
+                }
+            }
         }
-        const distractors = JSON.parse(jsonMatch[0]);
+        
+        if (!Array.isArray(distractors) || distractors.length < 4) {
+            throw new Error('오답 4개 미만: ' + JSON.stringify(distractors));
+        }
         
         console.log('[Quiz] 오답 생성: ' + word + ' (품사: ' + posKo + ') → ' + distractors.join(', '));
         res.json({ success: true, distractors: distractors });
