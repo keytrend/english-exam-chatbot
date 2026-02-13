@@ -357,6 +357,7 @@
             cursor: pointer;
             font-size: 15px;
             transition: all 0.2s;
+            color: #333;
         }
         .quiz-choice:hover {
             background: #e9ecef;
@@ -2130,7 +2131,7 @@
             var labels = ['①', '②', '③', '④', '⑤'];
             for (var i = 0; i < quiz.choices.length; i++) {
                 var pubChoice = window.stripPOS ? window.stripPOS(quiz.choices[i]) : quiz.choices[i];
-                html += '<label id="public-option-' + i + '" data-correct="' + (i === quiz.correct_index ? 'true' : 'false') + '" style="display: block; padding: 12px 14px; margin-bottom: 8px; background: #f8f9fa; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; font-size: 14px;" onclick="window.selectPublicOption(' + i + ')">';
+                html += '<label id="public-option-' + i + '" data-correct="' + (i === quiz.correct_index ? 'true' : 'false') + '" style="display: block; padding: 12px 14px; margin-bottom: 8px; background: #f8f9fa; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; font-size: 14px; color: #333;" onclick="window.selectPublicOption(' + i + ')">';
                 html += '<input type="radio" name="public-answer" value="' + i + '" style="margin-right: 10px; accent-color: #f5576c;">';
                 html += '<span>' + labels[i] + ' ' + pubChoice + '</span>';
                 html += '</label>';
@@ -2385,7 +2386,7 @@
             var labels = ['①', '②', '③', '④', '⑤'];
             for (var i = 0; i < choices.length; i++) {
                 var displayChoice = window.stripPOS(choices[i]);  // 최종 안전장치: 렌더링 시 품사 제거
-                html += '<label id="my-option-' + i + '" data-correct="' + (i === correctIndex ? 'true' : 'false') + '" style="display: block; padding: 12px 14px; margin-bottom: 8px; background: #f8f9fa; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; font-size: 14px;" onclick="window.selectMyOption(' + i + ')">';
+                html += '<label id="my-option-' + i + '" data-correct="' + (i === correctIndex ? 'true' : 'false') + '" style="display: block; padding: 12px 14px; margin-bottom: 8px; background: #f8f9fa; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; font-size: 14px; color: #333;" onclick="window.selectMyOption(' + i + ')">';
                 html += '<input type="radio" name="my-answer" value="' + i + '" style="margin-right: 10px; accent-color: #667eea;">';
                 html += '<span>' + labels[i] + ' ' + displayChoice + '</span>';
                 html += '</label>';
