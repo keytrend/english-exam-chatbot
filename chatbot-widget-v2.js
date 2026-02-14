@@ -632,6 +632,7 @@
     window.API_URL = 'https://english-exam-chatbot.onrender.com';
     window.authToken = localStorage.getItem('authToken');
     window.selectedQuestionType = 'simple';
+    window.conversationHistory = [];  // 최근 3회 대화 저장 (오류2 수정)
     window.userInteractingWithAuth = false; // 사용자가 로그인/가입 폼 조작 중인지
 
     // ========== 유틸리티 함수 ==========
@@ -1117,6 +1118,7 @@
         localStorage.removeItem('authToken');
         localStorage.removeItem('userEmail');
         window.authToken = null;
+        window.conversationHistory = [];  // 대화 히스토리 초기화
         document.getElementById('chatArea').classList.remove('visible');
         document.getElementById('loginArea').classList.remove('hidden');
         document.getElementById('signupArea').classList.remove('visible');
@@ -1254,7 +1256,8 @@
                     question: question, 
                     questionType: currentType,
                     page_id: window.getPageId(),
-                    page_context: pageContext
+                    page_context: pageContext,
+                    conversationHistory: currentType === 'complex' ? window.conversationHistory : []
                 }),
                 credentials: 'omit'
             });
@@ -1312,6 +1315,15 @@
                 var responseType = (data.metadata && data.metadata.questionType) || currentType;
                 window.addMessage(data.answer, 'bot', responseType);
                 window.loadUsageInfo();
+                
+                // 복잡한 질문일 때만 대화 히스토리 저장 (최근 3쌍 = 6개)
+                if (currentType === 'complex') {
+                    window.conversationHistory.push({ role: 'user', content: question });
+                    window.conversationHistory.push({ role: 'assistant', content: data.answer });
+                    if (window.conversationHistory.length > 6) {
+                        window.conversationHistory = window.conversationHistory.slice(-6);
+                    }
+                }
             } else {
                 window.showError(data.message || '답변을 받지 못했습니다.');
             }
