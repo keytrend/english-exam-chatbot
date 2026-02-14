@@ -4,7 +4,7 @@
  * 
  * ===== 모델 분기 =====
  * 단어 뜻 질문 (simple) → Haiku 4.5 | max_tokens: 80 | ~₩0.17/회
- * 복잡한 질문 (complex) → Sonnet 4.5 | max_tokens: 1000 | ~₩3~7/회
+ * 복잡한 질문 (complex) → Sonnet 4.5 | max_tokens: 1500 | ~₩3~7/회
  * 
  * 수정일: 2026-02-11
  */
@@ -119,7 +119,7 @@ async function askComplex(question, context) {
     
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-5-20250929",
-      max_tokens: 500,
+      max_tokens: 1500,
       system: [COMPLEX_SYSTEM_PROMPT],
       messages: messages
     });
