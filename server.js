@@ -233,7 +233,7 @@ app.post('/api/guest-chat', async (req, res) => {
 });
 app.post('/api/chat', authenticateToken, async (req, res) => {
     try {
-        const { question, questionType, page_id, page_context } = req.body;
+        const { question, questionType, page_id, page_context, conversationHistory } = req.body;
         
         // ========== 해설 가져오기: 클라이언트 전송 우선 → 캐시 폴백 ==========
         let context = '';
@@ -326,7 +326,7 @@ const startTime = Date.now();
         [req.user.email]
       );
     }
-const result = await answerQuestion(question, context, questionType);  // ← questionType 추가
+const result = await answerQuestion(question, context, questionType, conversationHistory);  // ← conversationHistory 추가
 const responseTime = Date.now() - startTime;
     
     // 사용량 증가
